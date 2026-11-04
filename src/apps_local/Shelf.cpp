@@ -24,6 +24,9 @@
 #include "flashcards/FlashcardsActivity.h"
 #include "forehead/ForeheadActivity.h"
 #include "game2048/Game2048Activity.h"
+#if defined(CROSSINK_GAMEBOY) && CROSSINK_GAMEBOY
+#include "gameboy/GameBoyLauncherActivity.h"
+#endif
 #include "go/GoActivity.h"
 #include "habits/HabitsActivity.h"
 #include "hackernews/HackerNewsActivity.h"
@@ -76,6 +79,9 @@ constexpr shelf::Item kGames[] = {
     {"CONNECT FOUR", &icon_connectfour_32, &ConnectFourActivity::create},
     {"SUDOKU", &icon_sudoku_32, &SudokuActivity::create},
     {"OTHELLO", &extra_circle_dot_32, &PocketGamesActivity::createOthello},
+#if defined(CROSSINK_GAMEBOY) && CROSSINK_GAMEBOY
+    {"GAME BOY", &icon_games_32, &GameBoyLauncherActivity::create},
+#endif
 };
 constexpr shelf::Item kApps[] = {
     {"READING QUEST", &icon_dungeon_32, &ReadingQuestActivity::create},
@@ -347,6 +353,7 @@ const char* label(const char* stableTitle) {
   if (std::strcmp(stableTitle, "CHECKERS") == 0) return tr(STR_UI_CHECKERS_3296AA);
   if (std::strcmp(stableTitle, "CONNECT FOUR") == 0) return tr(STR_UI_CONNECT_FOUR_A81733);
   if (std::strcmp(stableTitle, "MINESWEEPER") == 0) return tr(STR_UI_MINESWEEPER_A2F226);
+  if (std::strcmp(stableTitle, "GAME BOY") == 0) return tr(STR_GAME_BOY);
   if (std::strcmp(stableTitle, "TOY BATTLE") == 0) return tr(STR_UI_TOY_BATTLE_7C7DF7);
   if (std::strcmp(stableTitle, "FOREHEAD") == 0) return tr(STR_UI_FOREHEAD_82AFB5);
   if (std::strcmp(stableTitle, "THE INTERCEPT") == 0) return tr(STR_INTERCEPT_NAME);

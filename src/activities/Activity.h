@@ -62,6 +62,7 @@ class Activity {
   virtual void requestUpdateAndWait();
 
   virtual bool skipLoopDelay() { return false; }
+  virtual bool blocksGlobalInput() const { return false; }
   // No declared deadline retains legacy polling and CPU policy. An explicit
   // delay opts in to interruptible waits; zero means service again now.
   virtual std::optional<uint32_t> nextLoopWakeDelayMs(uint32_t) const { return std::nullopt; }

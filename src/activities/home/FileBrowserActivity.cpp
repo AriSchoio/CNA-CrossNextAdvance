@@ -141,6 +141,10 @@ void FileBrowserActivity::loadFiles() {
         if (FsHelpers::checkFileExtension(filename, ".bin")) {
           files.emplace_back(filename);
         }
+      } else if (mode == Mode::PickGameBoy) {
+        if (FsHelpers::checkFileExtension(filename, ".gb") || FsHelpers::checkFileExtension(filename, ".gbc")) {
+          files.emplace_back(filename);
+        }
       } else if (FsHelpers::hasReflowableBookExtension(filename) || FsHelpers::hasXtcExtension(filename) ||
                  FsHelpers::hasImageExtension(filename)) {
         files.emplace_back(filename);
@@ -358,7 +362,7 @@ void FileBrowserActivity::activateSelected() {
   bool isDirectory = (entry.back() == '/');
 
   // Firmware picker: select file -> return path; navigate into directories normally.
-  if (mode == Mode::PickFirmware && !isDirectory) {
+  if (mode != Mode::Books && !isDirectory) {
     std::string cleanBasePath = basepath;
     if (cleanBasePath.back() != '/') cleanBasePath += "/";
     ActivityResult res{FilePathResult{cleanBasePath + entry}};
@@ -583,8 +587,8 @@ bool FileBrowserActivity::handleButtons() {
         }
 
         requestUpdate();
-      } else if (mode == Mode::PickFirmware) {
-        // Firmware picker at root: cancel back to caller instead of going home.
+      } else if (mode != Mode::Books) {
+        // A picker at root cancels back to its caller instead of going home.
         ActivityResult res;
         res.isCancelled = true;
         setResult(std::move(res));
@@ -629,8 +633,10 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   const char* footerLocation = pathLength < 0 || size_t(pathLength) >= sizeof(pathLabel) ? basepath.c_str() : pathLabel;
 
   if (files.empty()) {
-    screen.centeredText(mode == Mode::PickFirmware ? tr(STR_NO_BIN_FILES) : tr(STR_NO_FILES_FOUND),
-                        screen.theme().bodyText);
+    const char* emptyMessage = mode == Mode::PickFirmware  ? tr(STR_NO_BIN_FILES)
+                               : mode == Mode::PickGameBoy ? tr(STR_NO_GAME_BOY_ROMS)
+                                                           : tr(STR_NO_FILES_FOUND);
+    screen.centeredText(emptyMessage, screen.theme().bodyText);
     char count[48];
     std::snprintf(count, sizeof(count), tr(STR_BROWSER_ITEMS), 0U);
     libraryui::statusFooter(screen, footerLocation, count);
@@ -668,20 +674,20 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
 }
 
 void FileBrowserActivity::drawChrome() {
-  const char* folderName = mode == Mode::PickFirmware ? tr(STR_SELECT_FIRMWARE_FILE)
-                           : chrome::lightHeader      ? tr(STR_BROWSE_FILES)
-                           : basepath == "/"          ? tr(STR_SD_CARD)
-                                                      : basepath.c_str() + basepath.rfind('/') + 1;
+  const char* folderName = mode == Mode::PickFirmware  ? tr(STR_SELECT_FIRMWARE_FILE)
+                           : mode == Mode::PickGameBoy ? tr(STR_SELECT_GAME_BOY_ROM)
+                           : chrome::lightHeader       ? tr(STR_BROWSE_FILES)
+                           : basepath == "/"           ? tr(STR_SD_CARD)
+                                                       : basepath.c_str() + basepath.rfind('/') + 1;
   pixelui::drawHeader(renderer, folderName, unicodeNames || I18N.getLanguage() != Language::EN);
 }
 
 void FileBrowserActivity::drawFooter() {
-  const char* backLabel = (basepath == "/") ? (mode == Mode::PickFirmware ? tr(STR_BACK) : tr(STR_HOME)) : tr(STR_BACK);
-  // In PickFirmware mode, Confirm on a .bin returns the path to the caller (not "open"); show
-  // STR_SELECT instead. Directories in the same picker still descend, so keep STR_OPEN there.
-  const bool selectingFirmwareFile = mode == Mode::PickFirmware && !files.empty() && nav.selected >= 0 &&
-                                     nav.selected < listCount() && files[nav.selected].back() != '/';
-  const char* confirmLabel = files.empty() ? "" : (selectingFirmwareFile ? tr(STR_SELECT) : tr(STR_OPEN));
+  const char* backLabel = (basepath == "/") ? (mode == Mode::Books ? tr(STR_HOME) : tr(STR_BACK)) : tr(STR_BACK);
+  // A picker returns files but still lets the user descend into directories.
+  const bool selectingFile = mode != Mode::Books && !files.empty() && nav.selected >= 0 && nav.selected < listCount() &&
+                             files[nav.selected].back() != '/';
+  const char* confirmLabel = files.empty() ? "" : (selectingFile ? tr(STR_SELECT) : tr(STR_OPEN));
   const auto labels = mappedInput.mapLabels(backLabel, confirmLabel, files.empty() ? "" : tr(STR_DIR_UP),
                                             files.empty() ? "" : tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

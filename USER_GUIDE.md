@@ -131,6 +131,11 @@ vertically: swipe up for the next page, down for the previous, and the header
 says which page you are on. A row opens that game or app; Back (the
 left-to-right swipe) closes it and returns you here.
 
+On X4 Pro, **Game Boy** lets you choose a `.gb` or `.gbc` ROM from the SD card.
+The emulator supports the device buttons and touch controls; cartridge saves
+are kept beside each ROM. No game ROMs are included. See
+[Game Boy](docs/apps/gameboy.md) for controls and details.
+
 Several of the games also play between two devices over **PLAY NEARBY**, with
 no pairing screen and nothing to type. Put two devices next to each other and
 they find one another. The [README](README.md) says which ones.

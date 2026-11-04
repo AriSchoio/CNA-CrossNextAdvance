@@ -116,6 +116,15 @@ missing Knucklebones, Sea Salt & Paper, Toy Battle, Yahtzee and Wavelength, all
 of which ship. A list of trademarks is exactly the kind that goes stale
 silently, and being incomplete is the one way this notice can do harm.
 
+The Game Boy emulator integration was ported from
+[ariintheam-coder/Ink-boy](https://github.com/ariintheam-coder/Ink-boy) (MIT).
+It uses **Peanut-GB** by Mahyar Koshkouei (MIT) for DMG ROMs and
+**Walnut-CGB** by Mr. Paul (MIT; based on Peanut-GB and including SameBoy-derived
+code) for CGB ROMs. The upstream copyright and license notices are retained in
+the vendored core headers under `lib/PeanutGB/` and `lib/WalnutCGB/`. The
+device integration and dithering are under `src/apps_local/gameboy/`. No game
+ROMs are distributed.
+
 ## Something missing
 
 If your work is here and this notice is wrong, or your work is here and this

@@ -225,26 +225,28 @@ void ActivityManager::loop() {
   }
 
   if (currentActivity) {
-    // Reading reserves the bottom edge for format-aware text/page settings.
-    // Resolve it before the global Home gesture on boards without a Home key.
-    if (mappedInput.wasReaderTextSettingsGesture() && currentActivity->handleReaderTextSettingsGesture()) {
-      return;
-    }
-    if (!currentActivity->isHomeActivity() && mappedInput.wasHomeGesture()) {
-      if (currentActivity->handleHomeGesture()) {
+    if (!currentActivity->blocksGlobalInput()) {
+      // Reading reserves the bottom edge for format-aware text/page settings.
+      // Resolve it before the global Home gesture on boards without a Home key.
+      if (mappedInput.wasReaderTextSettingsGesture() && currentActivity->handleReaderTextSettingsGesture()) {
         return;
       }
-      goHome();
-      return;
-    }
+      if (!currentActivity->isHomeActivity() && mappedInput.wasHomeGesture()) {
+        if (currentActivity->handleHomeGesture()) {
+          return;
+        }
+        goHome();
+        return;
+      }
 
-    // Guarded on present() so a board without a frontlight never opens a panel
-    // for one. Pushed, so it returns to whatever was underneath -- including
-    // mid-book.
-    if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && mappedInput.wasLightPanelGesture()) {
-      haptic_feedback::touchAction();
-      pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
-      return;
+      // Guarded on present() so a board without a frontlight never opens a panel
+      // for one. Pushed, so it returns to whatever was underneath -- including
+      // mid-book.
+      if (Frontlight.present() && currentActivity->name != "FrontlightPanel" && mappedInput.wasLightPanelGesture()) {
+        haptic_feedback::touchAction();
+        pushActivity(std::make_unique<FrontlightPanelActivity>(renderer, mappedInput));
+        return;
+      }
     }
 
     // Note: do not hold a lock here, the loop() method must be responsible for acquire one if needed

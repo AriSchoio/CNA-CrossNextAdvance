@@ -64,10 +64,10 @@ configured separately. Saved Jersey 25 choices migrate to Noto Sans.
 - Pomodoro's physical button starts and pauses; XTC/XTCH can reverse swipes
   and page-tap zones for manga reading.
 
-The active shelf contains these **16 games**:
+The active shelf contains these **17 games**:
 Chess (including puzzles), Checkers, Go, Minesweeper, Picross, Wordle, 2048,
 The Intercept, Battleship, Solitaire, Hearts, Murdle, Carnivore, Connect Four,
-Sudoku and Othello.
+Sudoku, Othello and Game Boy (X4 Pro only; supports `.gb` and `.gbc` ROMs).
 
 Its **13 app entries** are Reading Quest, PET, Habits, To Do List, Notes, Pomodoro,
 Wallpapers, Quotes, Flashcards, Words, Calendar, Clock and Counter.
