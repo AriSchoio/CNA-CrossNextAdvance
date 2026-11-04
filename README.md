@@ -18,8 +18,10 @@ This release supports **X4 Pro only** (ESP32-S3).
 CrossNext is based on [CrossPlay 1.14.2](https://github.com/ma-r-s/crossplay)
 and [CrossPoint 1.6.5](https://github.com/crosspoint-reader/crosspoint-reader),
 with the FreeInk SDK. The reader and most games and apps come from those projects.
-CrossNext adapts their interface, navigation and study workflows. Additional
-references include [CrossInk](https://github.com/uxjulia/CrossInk),
+CrossNext adapts their interface, navigation and study workflows, and adds a
+Game Boy and Game Boy Color emulator adapted from
+[Ink-boy](https://github.com/ariintheam-coder/Ink-boy). Additional references
+include [CrossInk](https://github.com/uxjulia/CrossInk),
 [CrossDiTo](https://github.com/dito94/CrossDiTo) and
 [VCodex](https://github.com/franssjz/cpr-vcodex); see the [credits](docs/crossnext-changes.md).
 
@@ -67,10 +69,20 @@ configured separately. Saved Jersey 25 choices migrate to Noto Sans.
 The active shelf contains these **17 games**:
 Chess (including puzzles), Checkers, Go, Minesweeper, Picross, Wordle, 2048,
 The Intercept, Battleship, Solitaire, Hearts, Murdle, Carnivore, Connect Four,
-Sudoku, Othello and Game Boy (X4 Pro only; supports `.gb` and `.gbc` ROMs).
+Sudoku, Othello and **Game Boy** (X4 Pro only).
 
 Its **13 app entries** are Reading Quest, PET, Habits, To Do List, Notes, Pomodoro,
 Wallpapers, Quotes, Flashcards, Words, Calendar, Clock and Counter.
+
+### Game Boy and Game Boy Color
+
+Open **Games → Game Boy** on an X4 Pro, then choose a `.gb` or `.gbc` ROM from
+the SD card. The emulator displays games on the e-ink screen and supports
+directional, A/B, Start and Select controls, including on-screen controls when
+touch is available. Cartridge saves are stored beside the ROM as `.sav` files
+and autosaved during play. CrossNext includes the emulator, not game ROMs; add
+only ROMs you are authorized to use. See the [Game Boy guide](docs/apps/gameboy.md)
+for details.
 
 Fresh settings start in **English**. Spanish is available in the language
 settings; an existing installation keeps its saved language.
