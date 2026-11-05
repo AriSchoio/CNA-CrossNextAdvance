@@ -8,9 +8,10 @@
 namespace dungeoncrawl {
 
 inline constexpr uint16_t kCatalogSize = 1024;
+inline constexpr uint16_t kUnequippedItem = 0xffffu;
 inline constexpr uint8_t kInventorySize = 24;
 inline constexpr uint8_t kSkillCount = 12;
-inline constexpr uint32_t kStateVersion = 0xDCC4333u;
+inline constexpr uint32_t kStateVersion = 0xDCC4335u;
 
 struct State {
   uint32_t version = kStateVersion;
@@ -51,6 +52,18 @@ struct State {
   uint8_t reputation = 50;
   uint8_t attributePoints = 3;
   uint16_t exploredNodes = 0;
+  uint8_t battleSkillCooldown = 0;
+  uint8_t enemyStunned = 0;
+  uint16_t playerShield = 0;
+  uint16_t enemyGuard = 0;
+  char crawlerName[24] = "Carl";
+  uint8_t originId = 0;
+  uint8_t factionId = 0;
+  uint8_t appearanceId = 0;
+  uint8_t chapter = 1;
+  uint16_t notoriety = 0;
+  uint32_t soulCoins = 0;
+  uint8_t activeSkillId = 0;
 };
 
 inline uint32_t nextRandom(uint32_t& seed) {
@@ -71,6 +84,32 @@ inline bool addItem(State& state, uint16_t item) {
 inline const char* className(uint8_t id) {
   static const char* names[] = {"Prismatic Knight", "Dungeon Medic", "Nightblade", "System Engineer"};
   return names[id % 4];
+}
+
+inline const char* originName(uint8_t id) {
+  static const char* names[] = {"Earth Tourist", "Bunker Survivor", "Dungeon Native", "System Rebel"};
+  return names[id % 4u];
+}
+
+inline const char* factionName(uint8_t id) {
+  static const char* names[] = {"Newbie Alliance", "Desperado Club", "Royal Court", "Bedlam Crew"};
+  return names[id % 4u];
+}
+
+inline const char* appearanceName(uint8_t id) {
+  static const char* names[] = {"Classic", "Ascendant", "Royal", "Bedlam", "Neon", "Feral"};
+  return names[id % 6u];
+}
+
+inline void nameNextCrawl(State& state) {
+  static const char* names[] = {"Carl", "Donut", "Mongo", "Katja", "Samantha", "Orren"};
+  for (uint8_t i = 0; i < 6u; ++i) {
+    if (std::strcmp(state.crawlerName, names[i]) == 0) {
+      std::snprintf(state.crawlerName, sizeof(state.crawlerName), "%s", names[(i + 1u) % 6u]);
+      return;
+    }
+  }
+  std::snprintf(state.crawlerName, sizeof(state.crawlerName), "%s", names[0]);
 }
 
 inline const char* itemName(uint16_t id) {
@@ -198,6 +237,8 @@ inline void advanceQuest(State& state) {
       state.questProgress = 0;
       state.coins += 20u + state.floor * 10u;
       state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 5u));
+      state.notoriety = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.notoriety + 25u));
+      state.soulCoins += 5u + state.floor;
       if (state.inventoryCount < kInventorySize)
         addItem(state, static_cast<uint16_t>(randomRange(state.seed, 64u)));
       const uint32_t stage = state.floor + state.room / 4u;
@@ -237,11 +278,24 @@ inline void newGame(State& state, uint32_t seed) {
   state.reputation = 50;
   state.attributePoints = 3;
   state.exploredNodes = 0;
+  state.battleSkillCooldown = 0;
+  state.enemyStunned = 0;
+  state.playerShield = 0;
+  state.enemyGuard = 0;
+  std::snprintf(state.crawlerName, sizeof(state.crawlerName), "%s", "Carl");
+  state.originId = 0;
+  state.factionId = 0;
+  state.appearanceId = 0;
+  state.chapter = 1;
+  state.notoriety = 0;
+  state.soulCoins = 0;
+  state.activeSkillId = 0;
+  for (uint8_t i = 0; i < 4u; ++i) state.equipped[i] = kUnequippedItem;
   addItem(state, static_cast<uint16_t>(randomRange(state.seed, kCatalogSize)));
   addItem(state, 64u);
 }
 
-enum class ExploreChoice : uint8_t { Investigate = 0, Trade = 1, Rest = 2, Challenge = 3 };
+enum class ExploreChoice : uint8_t { Investigate = 0, Trade = 1, Rest = 2, Challenge = 3, Skill = 4 };
 
 inline void beginEncounter(State& state);
 
@@ -264,10 +318,13 @@ inline bool explore(State& state, ExploreChoice choice) {
     state.health = state.maxHealth;
     state.mana = state.maxMana;
     state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 3u));
+    if (state.originId == 1u) state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 15u));
+    if (state.factionId == 2u) state.soulCoins += 1u;
     return true;
   }
   if (choice == ExploreChoice::Trade) {
-    const uint16_t price = static_cast<uint16_t>(6u + state.floor);
+    uint16_t price = static_cast<uint16_t>(6u + state.floor);
+    if (state.factionId == 1u && price > 2u) price -= 2u;
     if (state.coins >= price) {
       state.coins -= price;
       state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 4u));
@@ -276,8 +333,31 @@ inline bool explore(State& state, ExploreChoice choice) {
     }
     return true;
   }
+  if (choice == ExploreChoice::Skill) {
+    const uint8_t rank = state.skills[state.activeSkillId];
+    if (state.mana >= 8u && rank > 0u) {
+      state.mana -= 8u;
+      switch (state.activeSkillId) {
+        case 0: state.health = state.maxHealth; break;
+        case 1: state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 15u)); break;
+        case 2: state.mana = state.maxMana; break;
+        case 3: state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 3u)); break;
+        case 4: if (state.inventoryCount < kInventorySize) addItem(state, static_cast<uint16_t>(randomRange(state.seed, kCatalogSize))); break;
+        case 5: state.coins += 12u + rank; break;
+        case 6: state.xp += 20u + rank * 3u; levelUp(state); break;
+        case 7: state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 20u + rank)); state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 12u)); break;
+        case 8: state.health = state.maxHealth; state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 5u)); break;
+        case 9: state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 6u)); break;
+        case 10: state.soulCoins += 2u + rank / 4u; break;
+        default: state.notoriety = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.notoriety + 10u)); if (state.inventoryCount < kInventorySize) addItem(state, static_cast<uint16_t>(randomRange(state.seed, 64u))); break;
+      }
+      state.notoriety = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.notoriety + rank));
+    }
+    return true;
+  }
   if (choice == ExploreChoice::Challenge) {
     beginEncounter(state);
+    return true;
   } else {
     const uint32_t reward = 4u + randomRange(state.seed, 10u);
     state.coins += reward;
@@ -298,6 +378,7 @@ inline void advanceRoom(State& state) {
   if (state.room > 12) {
     state.room = 1;
     ++state.floor;
+    state.chapter = static_cast<uint8_t>(std::min<uint32_t>(255u, state.chapter + 1u));
     state.health = static_cast<uint16_t>(state.health + state.maxHealth / 4 < state.maxHealth
                                              ? state.health + state.maxHealth / 4
                                              : state.maxHealth);
@@ -337,6 +418,10 @@ inline void beginEncounter(State& state) {
   state.battleTurn = 1;
   state.combo = 0;
   state.enemyIntent = static_cast<uint8_t>(randomRange(state.seed, 3u));
+  state.battleSkillCooldown = 0;
+  state.enemyStunned = 0;
+  state.playerShield = 0;
+  state.enemyGuard = 0;
 }
 
 inline bool usePotion(State& state) {
@@ -347,7 +432,12 @@ inline bool usePotion(State& state) {
   return true;
 }
 
-enum class BattleAction : uint8_t { Attack = 0, Guard = 1, Arcane = 2, Item = 3, Escape = 4 };
+enum class BattleAction : uint8_t { Attack = 0, Guard = 1, Arcane = 2, Item = 3, Skill = 4, Escape = 5 };
+
+inline const char* classSkillName(uint8_t classId) {
+  static const char* names[] = {"Prism Break", "Battlefield Mend", "Umbral Execution", "System Overload"};
+  return names[classId % 4u];
+}
 
 inline bool battleTurn(State& state, BattleAction action) {
   if (state.enemyMaxHealth == 0) beginEncounter(state);
@@ -357,6 +447,10 @@ inline bool battleTurn(State& state, BattleAction action) {
       state.enemyMaxHealth = 0;
       state.guard = 0;
       state.combo = 0;
+      state.battleSkillCooldown = 0;
+      state.enemyStunned = 0;
+      state.playerShield = 0;
+      state.enemyGuard = 0;
       state.viewers = static_cast<uint16_t>(std::max<uint32_t>(0u, state.viewers > 2u ? state.viewers - 2u : 0u));
       advanceRoom(state);
       return true;
@@ -366,8 +460,10 @@ inline bool battleTurn(State& state, BattleAction action) {
   uint16_t damage = 0;
   if (action == BattleAction::Attack) {
     damage = static_cast<uint16_t>(10 + state.level * 2 + state.skills[1] * 3 + randomRange(state.seed, 8u));
+    if (state.originId == 2u) damage += 3u;
+    if (state.factionId == 3u && state.combo >= 2u) damage += 4u;
     for (uint8_t slot = 0; slot < 4u; ++slot) {
-      if (state.equipped[slot] != 0u) damage += static_cast<uint16_t>(itemPower(state.equipped[slot]) / 4u);
+      if (state.equipped[slot] < kCatalogSize) damage += static_cast<uint16_t>(itemPower(state.equipped[slot]) / 4u);
     }
     damage += state.combo * 2u;
     state.combo = static_cast<uint8_t>(std::min<uint32_t>(5u, state.combo + 1u));
@@ -387,8 +483,36 @@ inline bool battleTurn(State& state, BattleAction action) {
     state.guard = static_cast<uint16_t>(12 + state.level * 2 + state.skills[0] * 2);
     state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 8u));
     state.combo = 0;
+  } else if (action == BattleAction::Skill) {
+    if (state.battleSkillCooldown == 0u && state.mana >= 10u) {
+      state.mana -= 10u;
+      state.battleSkillCooldown = 3u;
+      const uint8_t rank = state.skills[state.activeSkillId];
+      switch (state.activeSkillId) {
+        case 0: state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 22u + rank * 2u)); state.playerShield += static_cast<uint16_t>(rank); break;
+        case 1: damage = static_cast<uint16_t>(18u + state.level * 2u + rank * 4u + randomRange(state.seed, 10u)); break;
+        case 2: damage = static_cast<uint16_t>(24u + state.level * 3u + rank * 4u + randomRange(state.seed, 12u)); break;
+        case 3: state.guard = static_cast<uint16_t>(18u + rank * 3u); state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 8u)); break;
+        case 4: state.playerShield += static_cast<uint16_t>(8u + rank * 2u); damage = static_cast<uint16_t>(8u + rank * 2u); break;
+        case 5: damage = static_cast<uint16_t>(12u + rank * 5u + randomRange(state.seed, 18u)); break;
+        case 6: state.guard = static_cast<uint16_t>(12u + rank * 4u); state.enemyStunned = rank >= 10u ? 1u : 0u; break;
+        case 7: state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 12u + rank)); state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 14u)); break;
+        case 8: state.playerShield += static_cast<uint16_t>(12u + rank * 3u); break;
+        case 9: state.enemyStunned = 1u; state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 5u)); break;
+        case 10: state.mana = state.maxMana; damage = static_cast<uint16_t>(10u + rank * 3u); break;
+        default: if (randomRange(state.seed, 100u) < 30u + rank * 2u) damage = state.enemyHealth; else damage = static_cast<uint16_t>(10u + rank * 3u);
+      }
+      state.combo = static_cast<uint8_t>(std::min<uint32_t>(5u, state.combo + 1u));
+    }
   }
 
+  if (state.enemyGuard >= damage) {
+    state.enemyGuard -= damage;
+    damage = 0;
+  } else {
+    damage -= state.enemyGuard;
+    state.enemyGuard = 0;
+  }
   if (damage >= state.enemyHealth) state.enemyHealth = 0;
   else state.enemyHealth -= damage;
   if (state.enemyHealth == 0) {
@@ -396,6 +520,8 @@ inline bool battleTurn(State& state, BattleAction action) {
     state.coins += reward;
     state.xp += 24u + state.floor * 7u;
     state.kills++;
+    state.notoriety = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.notoriety + 8u + state.floor));
+    state.soulCoins += 1u + (state.room == 12u ? 10u : 0u);
     advanceQuest(state);
     state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 4u + randomRange(state.seed, 8u)));
     state.rating = static_cast<uint16_t>(std::min<uint32_t>(100u, state.rating + randomRange(state.seed, 5u)));
@@ -409,13 +535,32 @@ inline bool battleTurn(State& state, BattleAction action) {
     state.enemyPower = 0;
     state.guard = 0;
     state.combo = 0;
+    state.battleSkillCooldown = 0;
+    state.enemyStunned = 0;
+    state.playerShield = 0;
+    state.enemyGuard = 0;
     advanceRoom(state);
     return true;
   }
 
-  uint16_t incoming = state.enemyPower + randomRange(state.seed, 7u);
-  if (state.enemyIntent == 0) incoming += 8u;
-  if (state.enemyIntent == 2) incoming = incoming / 2u;
+  uint16_t incoming = 0;
+  if (state.enemyStunned != 0u) {
+    state.enemyStunned = 0u;
+  } else {
+    incoming = state.enemyPower + randomRange(state.seed, 7u);
+    if (state.enemyIntent == 0) incoming += 8u;
+    if (state.enemyIntent == 2) {
+      incoming = incoming / 2u;
+      state.enemyGuard = static_cast<uint16_t>(std::min<uint32_t>(50u, state.enemyGuard + 4u + state.floor));
+    }
+  }
+  if (state.playerShield >= incoming) {
+    state.playerShield -= incoming;
+    incoming = 0;
+  } else {
+    incoming -= state.playerShield;
+    state.playerShield = 0;
+  }
   if (state.guard >= incoming) {
     state.guard -= incoming;
     incoming = 0;
@@ -428,6 +573,7 @@ inline bool battleTurn(State& state, BattleAction action) {
   state.guard = 0;
   ++state.battleTurn;
   state.enemyIntent = static_cast<uint8_t>(randomRange(state.seed, 3u));
+  if (state.battleSkillCooldown != 0u) --state.battleSkillCooldown;
 
   if (state.health == 0) {
     ++state.deaths;
@@ -438,6 +584,10 @@ inline bool battleTurn(State& state, BattleAction action) {
     state.coins /= 2u;
     state.enemyHealth = 0;
     state.enemyMaxHealth = 0;
+    state.battleSkillCooldown = 0;
+    state.enemyStunned = 0;
+    state.playerShield = 0;
+    state.enemyGuard = 0;
   }
   return false;
 }
@@ -455,7 +605,7 @@ inline bool fight(State& state) {
     state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + randomRange(state.seed, 8u)));
     state.rating = static_cast<uint16_t>(std::min<uint32_t>(100u, state.rating + randomRange(state.seed, 5u)));
     const uint16_t loot = static_cast<uint16_t>(randomRange(state.seed, kCatalogSize));
-    addItem(state, loot);
+    if (state.inventoryCount < kInventorySize) addItem(state, loot);
     levelUp(state);
     return true;
   }

@@ -18,7 +18,7 @@
 
 namespace {
 namespace fui = freeink::ui;
-constexpr int menuRows = 7;
+constexpr int menuRows = 8;
 enum Action : freeink::ui::ActionId {
   ActionMenu = 101,
   ActionFight = 102,
@@ -28,11 +28,13 @@ enum Action : freeink::ui::ActionId {
   ActionBattleGuard = 106,
   ActionBattleArcane = 107,
   ActionBattleItem = 108,
-  ActionBattleEscape = 109,
-  ActionExploreInvestigate = 110,
-  ActionExploreTrade = 111,
-  ActionExploreRest = 112,
-  ActionExploreChallenge = 113,
+  ActionBattleSkill = 109,
+  ActionBattleEscape = 110,
+  ActionExploreInvestigate = 111,
+  ActionExploreTrade = 112,
+  ActionExploreRest = 113,
+  ActionExploreChallenge = 114,
+  ActionExploreSkill = 115,
 };
 }
 
@@ -63,11 +65,12 @@ void DungeonCrawlActivity::loop() {
   auto rowCount = [&]() -> int {
     switch (view) {
       case View::Menu: return menuRows;
-      case View::Explore: return 4;
+      case View::Explore: return 5;
+      case View::Dungeon: return 6;
       case View::Inventory: return static_cast<int>(state.inventoryCount);
       case View::Skills: return static_cast<int>(dungeoncrawl::kSkillCount);
       case View::Shop: return 6;
-      case View::Dungeon: return 4;
+      case View::Customize: return 6;
       default: return 1;
     }
   };
@@ -88,6 +91,7 @@ void DungeonCrawlActivity::loop() {
         case 4: view = View::Quests; break;
         case 5: view = View::Status; break;
         case 6: view = View::Explore; break;
+        case 7: view = View::Customize; break;
       }
       selected = 0;
       requestUpdate();
@@ -109,13 +113,15 @@ void DungeonCrawlActivity::loop() {
       requestUpdate();
       return;
     }
-    if (event.action >= ActionExploreInvestigate && event.action <= ActionExploreChallenge) {
+    if (event.action >= ActionExploreInvestigate && event.action <= ActionExploreSkill) {
       const auto choice = static_cast<dungeoncrawl::ExploreChoice>(event.action - ActionExploreInvestigate);
       const bool encounterStarted = dungeoncrawl::explore(state, choice);
       if (encounterStarted && choice == dungeoncrawl::ExploreChoice::Challenge) view = View::Dungeon;
       std::snprintf(message, sizeof(message), encounterStarted && choice == dungeoncrawl::ExploreChoice::Challenge
                                                   ? "A confrontation has begun."
-                                                  : "The route changed. Supply and reputation updated.");
+                                                  : choice == dungeoncrawl::ExploreChoice::Skill
+                                                        ? "Active skill used during exploration."
+                                                        : "The route changed. Supply and reputation updated.");
       dirty = true;
       save();
       requestUpdate();
@@ -134,7 +140,30 @@ void DungeonCrawlActivity::loop() {
     }
     if (event.action == ActionList) {
       selected = std::max(0, static_cast<int>(event.value));
-      if (view == View::Inventory && selected < state.inventoryCount) {
+      if (view == View::Customize) {
+        if (selected == 0) state.classId = (state.classId + 1u) % 4u;
+        else if (selected == 1) state.originId = (state.originId + 1u) % 4u;
+        else if (selected == 2) state.factionId = (state.factionId + 1u) % 4u;
+        else if (selected == 3) state.appearanceId = (state.appearanceId + 1u) % 6u;
+        else if (selected == 4) dungeoncrawl::nameNextCrawl(state);
+        else if (selected == 5) {
+          if (!resetArmed) {
+            resetArmed = true;
+            std::snprintf(message, sizeof(message), "Press DELETE SAVE again to confirm.");
+          } else {
+            dirty = false;
+            resetArmed = false;
+            saveFailed = !store.reset(state, esp_random());
+            view = View::Menu;
+            std::snprintf(message, sizeof(message), "Current crawl deleted. A new adventure has begun.");
+          }
+        }
+        if (selected != 5) {
+          resetArmed = false;
+          dirty = true;
+          save();
+        }
+      } else if (view == View::Inventory && selected < state.inventoryCount) {
         const uint16_t id = state.inventory[selected];
         const bool result = dungeoncrawl::useInventoryItem(state, selected);
         std::snprintf(message, sizeof(message), result ? "%s equipped or consumed." : "That item cannot be used.",
@@ -142,17 +171,11 @@ void DungeonCrawlActivity::loop() {
         dirty = true;
         save();
       } else if (view == View::Skills && selected < dungeoncrawl::kSkillCount) {
-        if (state.coins >= 10 && state.attributePoints > 0 && state.skills[selected] < 20) {
-          state.coins -= 10;
-          --state.attributePoints;
-          ++state.skills[selected];
-          std::snprintf(message, sizeof(message), "%s increased to %u.",
-                        dungeoncrawl::skillName(static_cast<uint8_t>(selected)), state.skills[selected]);
-          dirty = true;
-          save();
-        } else {
-          std::snprintf(message, sizeof(message), "Need 10 coins and 1 attribute point; maximum rank is 20.");
-        }
+        state.activeSkillId = static_cast<uint8_t>(selected);
+        std::snprintf(message, sizeof(message), "%s selected for combat and exploration.",
+                      dungeoncrawl::skillName(static_cast<uint8_t>(selected)));
+        dirty = true;
+        save();
       } else if (view == View::Shop) {
         const uint16_t id = static_cast<uint16_t>((state.floor * 37 + selected * 53 + state.room) %
                                                    dungeoncrawl::kCatalogSize);
@@ -205,6 +228,7 @@ void DungeonCrawlActivity::loop() {
         case 4: view = View::Quests; break;
         case 5: view = View::Status; break;
         case 6: view = View::Explore; break;
+        case 7: view = View::Customize; break;
       }
       selected = 0;
       requestUpdate();
@@ -213,7 +237,7 @@ void DungeonCrawlActivity::loop() {
     if (view == View::Dungeon) {
       dungeoncrawl::beginEncounter(state);
       const bool won = dungeoncrawl::battleTurn(state, static_cast<dungeoncrawl::BattleAction>(
-                                                         std::min(selected, 3)));
+                                                         std::min(selected, 5)));
       std::snprintf(message, sizeof(message), won ? "Encounter cleared. Choose the next route carefully."
                                                   : "Turn resolved. Read the enemy intent and adapt.");
       dirty = true;
@@ -222,12 +246,14 @@ void DungeonCrawlActivity::loop() {
       return;
     }
     if (view == View::Explore) {
-      const auto choice = static_cast<dungeoncrawl::ExploreChoice>(std::min(selected, 3));
+      const auto choice = static_cast<dungeoncrawl::ExploreChoice>(std::min(selected, 4));
       const bool encounterStarted = dungeoncrawl::explore(state, choice);
       if (encounterStarted && choice == dungeoncrawl::ExploreChoice::Challenge) view = View::Dungeon;
       std::snprintf(message, sizeof(message), encounterStarted && choice == dungeoncrawl::ExploreChoice::Challenge
                                                   ? "A confrontation has begun."
-                                                  : "The route changed. Supply and reputation updated.");
+                                                  : choice == dungeoncrawl::ExploreChoice::Skill
+                                                        ? "Active skill used during exploration."
+                                                        : "The route changed. Supply and reputation updated.");
       dirty = true;
       save();
       requestUpdate();
@@ -255,6 +281,33 @@ void DungeonCrawlActivity::loop() {
       } else {
         std::snprintf(message, sizeof(message), "Need 10 coins and 1 attribute point; skill maximum is 20.");
       }
+      requestUpdate();
+      return;
+    }
+    if (view == View::Customize) {
+      if (selected == 0) state.classId = (state.classId + 1u) % 4u;
+      else if (selected == 1) state.originId = (state.originId + 1u) % 4u;
+      else if (selected == 2) state.factionId = (state.factionId + 1u) % 4u;
+      else if (selected == 3) state.appearanceId = (state.appearanceId + 1u) % 6u;
+      else if (selected == 4) dungeoncrawl::nameNextCrawl(state);
+      else if (selected == 5) {
+        if (!resetArmed) {
+          resetArmed = true;
+          std::snprintf(message, sizeof(message), "Confirm again to delete the current save.");
+        } else {
+          dirty = false;
+          resetArmed = false;
+          saveFailed = !store.reset(state, esp_random());
+          view = View::Menu;
+          selected = 0;
+          std::snprintf(message, sizeof(message), "Current crawl deleted. A new adventure has begun.");
+          requestUpdate();
+          return;
+        }
+      }
+      if (selected != 5) resetArmed = false;
+      dirty = true;
+      save();
       requestUpdate();
       return;
     }
@@ -296,12 +349,12 @@ void DungeonCrawlActivity::render(RenderLock&&) {
 
   if (view == View::Menu) {
     static const char* rows[] = {"ENTER THE DUNGEON", "INVENTORY", "SKILLS", "SPONSOR SHOP", "QUEST LOG",
-                                 "CRAWLER STATUS", "EXPLORE THE FLOOR"};
+                                 "CRAWLER STATUS", "EXPLORE THE FLOOR", "CUSTOMIZE CRAWLER"};
     static const gamepanel::Mark marks[] = {gamepanel::Mark::Play, gamepanel::Mark::Book, gamepanel::Mark::Grid,
                                             gamepanel::Mark::Computer, gamepanel::Mark::Flag,
-                                            gamepanel::Mark::Settings, gamepanel::Mark::Flag};
+                                            gamepanel::Mark::Settings, gamepanel::Mark::Flag, gamepanel::Mark::Settings};
     const int gap = 8;
-    const int h = std::min(58, std::max(44, (body.height - gap * 6) / 7));
+    const int h = std::min(58, std::max(44, (body.height - gap * 7) / 8));
     for (int i = 0; i < menuRows; ++i)
       gamepanel::row(screen, fui::makeRect(body.x, body.y + i * (h + gap), body.width, h), rows[i], ActionMenu, i,
                      marks[i], selected == i);
@@ -330,6 +383,11 @@ void DungeonCrawlActivity::render(RenderLock&&) {
     static const char* intents[] = {"INTENT: HEAVY ATTACK", "INTENT: PRECISE ATTACK", "INTENT: RECOVER / WEAKEN"};
     dashboard::text(screen, fui::makeRect(hero.x + 12, hero.bottom() - 38, hero.width - 24, 28),
                     intents[state.enemyIntent % 3], pixelui::kSmall, fui::TextAlign::Left);
+    std::snprintf(line, sizeof(line), "%s  CD %u  SHIELD %u",
+                  dungeoncrawl::skillName(state.activeSkillId),
+                  state.battleSkillCooldown, state.playerShield);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.bottom() - 68, hero.width - 24, 24),
+                    line, pixelui::kSmall, fui::TextAlign::Left);
 
     const int cardY = hero.bottom() + 10;
     const int cardW = (body.width - 30) / 3;
@@ -344,7 +402,7 @@ void DungeonCrawlActivity::render(RenderLock&&) {
     }
     const int actionY = body.bottom() - 56;
     const int actionGap = 6;
-    const int actionW = (body.width - 20 - actionGap * 3) / 4;
+    const int actionW = (body.width - 20 - actionGap * 5) / 6;
     dashboard::button(screen, fui::makeRect(body.x + 10, actionY, actionW, 46),
                       "ATTACK", ActionBattleAttack, 0, selected == 0, nullptr, pixelui::kSmall);
     dashboard::button(screen, fui::makeRect(body.x + 10 + actionW + actionGap, actionY, actionW, 46),
@@ -353,6 +411,10 @@ void DungeonCrawlActivity::render(RenderLock&&) {
                       "ARCANE", ActionBattleArcane, 0, selected == 2, nullptr, pixelui::kSmall);
     dashboard::button(screen, fui::makeRect(body.x + 10 + 3 * (actionW + actionGap), actionY, actionW, 46),
                       "ITEM", ActionBattleItem, 0, selected == 3, nullptr, pixelui::kSmall);
+    dashboard::button(screen, fui::makeRect(body.x + 10 + 4 * (actionW + actionGap), actionY, actionW, 46),
+                      "SKILL", ActionBattleSkill, 0, selected == 4, nullptr, pixelui::kSmall);
+    dashboard::button(screen, fui::makeRect(body.x + 10 + 5 * (actionW + actionGap), actionY, actionW, 46),
+                      "ESCAPE", ActionBattleEscape, 0, selected == 5, nullptr, pixelui::kSmall);
   } else if (view == View::Explore) {
     dashboard::frame(screen, body);
     std::snprintf(line, sizeof(line), "%s", dungeoncrawl::eventName(state.eventId));
@@ -365,15 +427,34 @@ void DungeonCrawlActivity::render(RenderLock&&) {
     std::snprintf(line, sizeof(line), "REPUTATION %u  |  NODES %u", state.reputation, state.exploredNodes);
     dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 98, body.width - 24, 32), line,
                     pixelui::kBody, fui::TextAlign::Left);
-    const char* choices[] = {"INVESTIGATE", "TRADE", "REST", "CHALLENGE"};
+    const char* choices[] = {"INVESTIGATE", "TRADE", "REST", "CHALLENGE", "USE SKILL"};
     const freeink::ui::ActionId actions[] = {ActionExploreInvestigate, ActionExploreTrade,
-                                             ActionExploreRest, ActionExploreChallenge};
-    const int actionGap = 8, actionW = (body.width - 24 - actionGap * 3) / 4;
+                                             ActionExploreRest, ActionExploreChallenge, ActionExploreSkill};
+    const int actionGap = 6, actionW = (body.width - 24 - actionGap * 4) / 5;
     const int actionY = body.bottom() - 58;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 5; ++i)
       dashboard::button(screen,
                         fui::makeRect(body.x + 12 + i * (actionW + actionGap), actionY, actionW, 48),
                         choices[i], actions[i], 0, selected == i, nullptr, pixelui::kSmall);
+  } else if (view == View::Customize) {
+    dashboard::frame(screen, body);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 10, body.width - 24, 34),
+                    "CRAWLER IDENTITY", pixelui::kTitle, fui::TextAlign::Left);
+    const char* labels[] = {"CLASS", "ORIGIN", "FACTION", "APPEARANCE", "NAME", "NEW GAME / DELETE SAVE"};
+    const char* values[] = {
+        dungeoncrawl::className(state.classId),
+        dungeoncrawl::originName(state.originId),
+        dungeoncrawl::factionName(state.factionId),
+        dungeoncrawl::appearanceName(state.appearanceId),
+        state.crawlerName,
+        resetArmed ? "CONFIRM DELETE SAVE" : "ERASE CURRENT SAVE"};
+    for (int i = 0; i < 6; ++i) {
+      char row[96];
+      std::snprintf(row, sizeof(row), "%s  %s", labels[i], values[i]);
+      gamepanel::row(screen, fui::makeRect(body.x + 12, body.y + 50 + i * 52, body.width - 24, 46),
+                     row, ActionList, i, i == 5 ? gamepanel::Mark::Flag : gamepanel::Mark::Settings,
+                     selected == i);
+    }
   } else if (view == View::Inventory) {
     std::snprintf(line, sizeof(line), "PACK  %u / %u", state.inventoryCount, dungeoncrawl::kInventorySize);
     dashboard::text(screen, fui::makeRect(body.x, body.y, body.width, 32), line, pixelui::kBody,
@@ -399,6 +480,7 @@ void DungeonCrawlActivity::render(RenderLock&&) {
       const int col = i / rows, row = i % rows;
       char label[64], rank[24];
       std::snprintf(label, sizeof(label), "%s", dungeoncrawl::skillName(static_cast<uint8_t>(i)));
+      if (state.activeSkillId == static_cast<uint8_t>(i)) std::snprintf(label, sizeof(label), "ACTIVE  %s", dungeoncrawl::skillName(static_cast<uint8_t>(i)));
       std::snprintf(rank, sizeof(rank), "%u / 20", state.skills[i]);
       gamepanel::row(screen,
                      fui::makeRect(body.x + col * (cardW + gap), body.y + 38 + row * (cardH + gap), cardW, cardH),
@@ -427,8 +509,11 @@ void DungeonCrawlActivity::render(RenderLock&&) {
                     pixelui::kSmall);
   } else if (view == View::Status) {
     dashboard::frame(screen, body);
+    std::snprintf(line, sizeof(line), "%s  -  %s  /  %s  /  %s",
+                  state.crawlerName, dungeoncrawl::className(state.classId),
+                  dungeoncrawl::originName(state.originId), dungeoncrawl::factionName(state.factionId));
     dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 12, body.width - 24, 40),
-                    dungeoncrawl::className(state.classId), pixelui::kTitle, fui::TextAlign::Left);
+                    line, pixelui::kTitle, fui::TextAlign::Left);
     std::snprintf(line, sizeof(line), "LEVEL %u   XP %u / %u   COINS %u", state.level, state.xp,
                   state.level * 100u, state.coins);
     dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 58, body.width - 24, 34), line, pixelui::kBody,
@@ -440,6 +525,11 @@ void DungeonCrawlActivity::render(RenderLock&&) {
     std::snprintf(line, sizeof(line), "POINTS %u   REPUTATION %u   NODES %u", state.attributePoints,
                   state.reputation, state.exploredNodes);
     dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 138, body.width - 24, 34), line, pixelui::kSmall,
+                    fui::TextAlign::Left);
+    std::snprintf(line, sizeof(line), "CHAPTER %u   NOTORIETY %u   SOUL COINS %u   APPEARANCE %s",
+                  state.chapter, state.notoriety, state.soulCoins,
+                  dungeoncrawl::appearanceName(state.appearanceId));
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 178, body.width - 24, 34), line, pixelui::kSmall,
                     fui::TextAlign::Left);
   }
   if (saveFailed) dashboard::text(screen, fui::makeRect(body.x, body.bottom() - 24, body.width, 24), "SAVE FAILED",

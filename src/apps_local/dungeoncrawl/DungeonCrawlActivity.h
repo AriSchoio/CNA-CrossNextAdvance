@@ -16,13 +16,14 @@ class DungeonCrawlActivity final : public Activity {
   void render(RenderLock&&) override;
 
  private:
-  enum class View { Menu, Dungeon, Explore, Inventory, Skills, Shop, Quests, Status, Help };
+  enum class View { Menu, Dungeon, Explore, Inventory, Skills, Shop, Quests, Status, Customize, Help };
   dungeoncrawl::State state;
   dungeoncrawl::Store store;
   View view = View::Menu;
   int selected = 0;
   bool dirty = false;
   bool saveFailed = false;
+  bool resetArmed = false;
    bool ready = false;
    toybox::Interactions interactions;
   char message[160] = "Welcome to the crawl.";
