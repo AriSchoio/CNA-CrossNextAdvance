@@ -5,13 +5,26 @@
 #include <Memory.h>
 #include <esp_random.h>
 
+#include <algorithm>
 #include <cstdio>
 
 #include "../Shelf.h"
+#include "../ui/BackButton.h"
+#include "../ui/Dashboard.h"
+#include "../ui/GamePanel.h"
+#include "../ui/PixelMenuTheme.h"
 #include "../ui/ToyboxFonts.h"
+#include "../../components/SideButtonNavigation.h"
 
 namespace {
+namespace fui = freeink::ui;
 constexpr int menuRows = 6;
+enum Action : freeink::ui::ActionId {
+  ActionMenu = 101,
+  ActionFight = 102,
+  ActionList = 103,
+  ActionBack = 104,
+};
 }
 
 std::unique_ptr<Activity> DungeonCrawlActivity::create(GfxRenderer& renderer, MappedInputManager& input) {
@@ -38,6 +51,89 @@ void DungeonCrawlActivity::save() {
 
 void DungeonCrawlActivity::loop() {
   RenderLock lock(*this);
+  auto rowCount = [&]() -> int {
+    switch (view) {
+      case View::Menu: return menuRows;
+      case View::Inventory: return static_cast<int>(state.inventoryCount);
+      case View::Skills: return static_cast<int>(dungeoncrawl::kSkillCount);
+      case View::Shop: return 6;
+      default: return 1;
+    }
+  };
+  int touchX = -1, touchY = -1;
+  if (ready && sidebuttons::poll(interactions, mappedInput, touchX, touchY)) {
+    freeink::ui::InputSnapshot input;
+    input.touchReleased = true;
+    input.touchX = touchX;
+    input.touchY = touchY;
+    const auto event = sidebuttons::route(interactions, input, mappedInput, *this, true);
+    if (event.action == ActionMenu) {
+      selected = std::clamp<int>(event.value, 0, menuRows - 1);
+      switch (selected) {
+        case 0: view = View::Dungeon; break;
+        case 1: view = View::Inventory; break;
+        case 2: view = View::Skills; break;
+        case 3: view = View::Shop; break;
+        case 4: view = View::Quests; break;
+        case 5: view = View::Status; break;
+      }
+      selected = 0;
+      requestUpdate();
+      return;
+    }
+    if (event.action == ActionBack) {
+      view = View::Menu;
+      selected = 0;
+      requestUpdate();
+      return;
+    }
+    if (event.action == ActionFight) {
+      const bool won = dungeoncrawl::fight(state);
+      std::snprintf(message, sizeof(message), won ? "Victory! Loot acquired and the broadcast gained viewers."
+                                                   : "Defeat. The crawl struck you hard.");
+      dungeoncrawl::advanceRoom(state);
+      dirty = true;
+      save();
+      requestUpdate();
+      return;
+    }
+    if (event.action == ActionList) {
+      selected = std::max(0, static_cast<int>(event.value));
+      if (view == View::Inventory && selected < state.inventoryCount) {
+        const uint16_t id = state.inventory[selected];
+        state.health = state.health + 12 < state.maxHealth ? state.health + 12 : state.maxHealth;
+        state.equipped[selected % 4] = id;
+        std::snprintf(message, sizeof(message), "Equipped or used %s.", dungeoncrawl::itemName(id));
+        dirty = true;
+        save();
+      } else if (view == View::Skills && selected < dungeoncrawl::kSkillCount) {
+        if (state.coins >= 10 && state.skills[selected] < 20) {
+          state.coins -= 10;
+          ++state.skills[selected];
+          std::snprintf(message, sizeof(message), "%s increased to %u.",
+                        dungeoncrawl::skillName(static_cast<uint8_t>(selected)), state.skills[selected]);
+          dirty = true;
+          save();
+        } else {
+          std::snprintf(message, sizeof(message), "Need 10 coins; maximum rank is 20.");
+        }
+      } else if (view == View::Shop) {
+        const uint16_t id = static_cast<uint16_t>((state.floor * 37 + selected * 53 + state.room) %
+                                                   dungeoncrawl::kCatalogSize);
+        const uint16_t price = static_cast<uint16_t>(5 + dungeoncrawl::itemPower(id));
+        if (state.coins >= price && dungeoncrawl::addItem(state, id)) {
+          state.coins -= price;
+          std::snprintf(message, sizeof(message), "Purchased %s.", dungeoncrawl::itemName(id));
+          dirty = true;
+          save();
+        } else {
+          std::snprintf(message, sizeof(message), "Not enough coins or the pack is full.");
+        }
+      }
+      requestUpdate();
+      return;
+    }
+  }
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     if (view == View::Menu) {
       save();
@@ -51,12 +147,14 @@ void DungeonCrawlActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Up)) {
-    selected = selected <= 0 ? menuRows - 1 : selected - 1;
+    const int count = std::max(1, rowCount());
+    selected = selected <= 0 ? count - 1 : selected - 1;
     requestUpdate();
     return;
   }
   if (mappedInput.wasReleased(MappedInputManager::Button::Down)) {
-    selected = (selected + 1) % menuRows;
+    const int count = std::max(1, rowCount());
+    selected = (selected + 1) % count;
     requestUpdate();
     return;
   }
@@ -131,68 +229,126 @@ void DungeonCrawlActivity::loop() {
 
 void DungeonCrawlActivity::render(RenderLock&&) {
   renderer.clearScreen();
-  int y = 20;
-  renderer.drawCenteredText(toybox::kUiFontId, y, "CRAWL: SYSTEM SURVIVAL", true, EpdFontFamily::BOLD);
-  y += 36;
+  auto target = toybox::makeTarget(renderer);
+  pixelui::bindFonts(target, renderer);
+  const freeink::ui::InputSnapshot noInput{};
+  toybox::Frame frame(target, target.deviceContext(), noInput, interactions, nullptr, toybox::headerStatus(renderer));
+  toybox::Screen screen(frame);
+  pixelui::begin(screen);
+  pixelui::Header header;
+  header.title = "DCC CRAWL";
+  header.back = true;
+  pixelui::header(screen, header);
+  backui::publish(true, pixelui::geometry(screen.device()).back);
+  auto body = screen.body();
   char line[160];
 
   if (view == View::Menu) {
-    static const char* rows[] = {"Enter the dungeon", "Inventory", "Skills", "Sponsor shop", "Quests", "Status"};
-    for (int i = 0; i < menuRows; ++i) {
-      std::snprintf(line, sizeof(line), "%s%s", selected == i ? "> " : "  ", rows[i]);
-      renderer.drawText(toybox::kUiFontId, 20, y + i * 28, line, selected == i);
-    }
+    static const char* rows[] = {"ENTER THE DUNGEON", "INVENTORY", "SKILLS", "SPONSOR SHOP", "QUEST LOG", "CRAWLER STATUS"};
+    static const gamepanel::Mark marks[] = {gamepanel::Mark::Play, gamepanel::Mark::Book, gamepanel::Mark::Grid,
+                                            gamepanel::Mark::Computer, gamepanel::Mark::Flag, gamepanel::Mark::Settings};
+    const int gap = 8;
+    const int h = std::min(58, std::max(44, (body.height - gap * 5) / 6));
+    for (int i = 0; i < menuRows; ++i)
+      gamepanel::row(screen, fui::makeRect(body.x, body.y + i * (h + gap), body.width, h), rows[i], ActionMenu, i,
+                     marks[i], selected == i);
   } else if (view == View::Dungeon) {
-    std::snprintf(line, sizeof(line), "Floor %u  Room %u  HP %u/%u", state.floor, state.room, state.health,
-                  state.maxHealth);
-    renderer.drawText(toybox::kUiFontId, 20, y, line, true, EpdFontFamily::BOLD);
-    renderer.drawText(toybox::kUiFontId, 20, y + 34, "A hostile floor encounter waits.");
-    renderer.drawText(toybox::kUiFontId, 20, y + 62, "Press Confirm to fight.");
-    renderer.drawText(toybox::kUiFontId, 20, y + 100, message);
+    dashboard::frame(screen, body);
+    const auto hero = fui::makeRect(body.x + 10, body.y + 10, body.width - 20, body.height * 48 / 100);
+    dashboard::frame(screen, hero);
+    std::snprintf(line, sizeof(line), "FLOOR %u  /  ROOM %u", state.floor, state.room);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.y + 10, hero.width - 24, 34), line, pixelui::kBody,
+                    fui::TextAlign::Left);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.y + 48, hero.width - 24, 42),
+                    dungeoncrawl::roomName(state), pixelui::kTitle, fui::TextAlign::Left);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.y + 94, hero.width - 24, 50),
+                    dungeoncrawl::enemyName(state), pixelui::kBody, fui::TextAlign::Left);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.bottom() - 38, hero.width - 24, 28), message,
+                    pixelui::kSmall, fui::TextAlign::Left);
+
+    const int cardY = hero.bottom() + 10;
+    const int cardW = (body.width - 30) / 3;
+    const char* labels[] = {"HP", "VIEWERS", "RATING"};
+    uint32_t values[] = {state.health, state.viewers, state.rating};
+    for (int i = 0; i < 3; ++i) {
+      const auto card = fui::makeRect(body.x + 10 + i * (cardW + 5), cardY, cardW, 70);
+      dashboard::frame(screen, card);
+      dashboard::text(screen, fui::makeRect(card.x, card.y + 7, card.width, 24), labels[i], pixelui::kSmall);
+      std::snprintf(line, sizeof(line), "%lu", static_cast<unsigned long>(values[i]));
+      dashboard::text(screen, fui::makeRect(card.x, card.y + 34, card.width, 28), line, pixelui::kTitle);
+    }
+    dashboard::button(screen, fui::makeRect(body.x + 10, body.bottom() - 56, body.width - 20, 46),
+                      "FIGHT ENCOUNTER", ActionFight, 0, true, nullptr, pixelui::kBody);
   } else if (view == View::Inventory) {
-    std::snprintf(line, sizeof(line), "Inventory: %u/%u", state.inventoryCount, dungeoncrawl::kInventorySize);
-    renderer.drawText(toybox::kUiFontId, 20, y, line, true, EpdFontFamily::BOLD);
-    const int shown = state.inventoryCount < 8 ? state.inventoryCount : 8;
+    std::snprintf(line, sizeof(line), "PACK  %u / %u", state.inventoryCount, dungeoncrawl::kInventorySize);
+    dashboard::text(screen, fui::makeRect(body.x, body.y, body.width, 32), line, pixelui::kBody,
+                    fui::TextAlign::Left);
+    const int shown = std::min<int>(state.inventoryCount, 7);
     for (int i = 0; i < shown; ++i) {
-      std::snprintf(line, sizeof(line), "%s%s - Power %u", selected == i ? "> " : "  ",
-                    dungeoncrawl::itemName(state.inventory[i]), dungeoncrawl::itemPower(state.inventory[i]));
-      renderer.drawText(toybox::kUiFontId, 20, y + 34 + i * 24, line, selected == i);
+      char trailing[32];
+      std::snprintf(trailing, sizeof(trailing), "PWR %u", dungeoncrawl::itemPower(state.inventory[i]));
+      gamepanel::row(screen,
+                     fui::makeRect(body.x, body.y + 38 + i * 50, body.width, 46), dungeoncrawl::itemName(state.inventory[i]),
+                     ActionList, i, gamepanel::Mark::Book, selected == i, trailing);
     }
   } else if (view == View::Skills) {
-    renderer.drawText(toybox::kUiFontId, 20, y, "Skills - 10 coins each", true, EpdFontFamily::BOLD);
-    for (int i = 0; i < 6; ++i) {
-      std::snprintf(line, sizeof(line), "%s%s: %u/20", selected == i ? "> " : "  ", dungeoncrawl::skillName(i),
-                    state.skills[i]);
-      renderer.drawText(toybox::kUiFontId, 20, y + 34 + i * 24, line, selected == i);
+    dashboard::text(screen, fui::makeRect(body.x, body.y, body.width, 32), "SKILL TREE  -  10 COINS / RANK",
+                    pixelui::kBody, fui::TextAlign::Left);
+    const int columns = body.width > 600 ? 2 : 1;
+    const int rows = (dungeoncrawl::kSkillCount + columns - 1) / columns;
+    const int gap = 6;
+    const int cardH = std::min(46, (body.height - 38 - gap * (rows - 1)) / rows);
+    const int cardW = (body.width - gap * (columns - 1)) / columns;
+    for (int i = 0; i < dungeoncrawl::kSkillCount; ++i) {
+      const int col = i / rows, row = i % rows;
+      char label[64], rank[24];
+      std::snprintf(label, sizeof(label), "%s", dungeoncrawl::skillName(static_cast<uint8_t>(i)));
+      std::snprintf(rank, sizeof(rank), "%u / 20", state.skills[i]);
+      gamepanel::row(screen,
+                     fui::makeRect(body.x + col * (cardW + gap), body.y + 38 + row * (cardH + gap), cardW, cardH),
+                     label, ActionList, i, gamepanel::Mark::Grid, selected == i, rank, false);
     }
   } else if (view == View::Shop) {
-    renderer.drawText(toybox::kUiFontId, 20, y, "Sponsor Shop", true, EpdFontFamily::BOLD);
+    dashboard::text(screen, fui::makeRect(body.x, body.y, body.width, 32), "SPONSOR EXCHANGE", pixelui::kBody,
+                    fui::TextAlign::Left);
     for (int i = 0; i < 6; ++i) {
       const uint16_t id = static_cast<uint16_t>((state.floor * 37 + i * 53 + state.room) %
                                                  dungeoncrawl::kCatalogSize);
-      std::snprintf(line, sizeof(line), "%s%s - %u coins", selected == i ? "> " : "  ",
-                    dungeoncrawl::itemName(id), 5 + dungeoncrawl::itemPower(id));
-      renderer.drawText(toybox::kUiFontId, 20, y + 34 + i * 24, line, selected == i);
+      char price[32];
+      std::snprintf(price, sizeof(price), "%u C", 5 + dungeoncrawl::itemPower(id));
+      gamepanel::row(screen, fui::makeRect(body.x, body.y + 38 + i * 50, body.width, 46),
+                     dungeoncrawl::itemName(id), ActionList, i, gamepanel::Mark::Computer, selected == i, price);
     }
   } else if (view == View::Quests) {
-    renderer.drawText(toybox::kUiFontId, 20, y, state.quest, true, EpdFontFamily::BOLD);
-    std::snprintf(line, sizeof(line), "Progress: %u/%u", state.questProgress, state.questGoal);
-    renderer.drawText(toybox::kUiFontId, 20, y + 34, line);
-    renderer.drawText(toybox::kUiFontId, 20, y + 68, message);
+    dashboard::frame(screen, body);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 12, body.width - 24, 42), "ACTIVE CONTRACT",
+                    pixelui::kSmall);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 58, body.width - 24, 48), state.quest,
+                    pixelui::kTitle);
+    std::snprintf(line, sizeof(line), "PROGRESS  %u / %u", state.questProgress, state.questGoal);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 112, body.width - 24, 34), line, pixelui::kBody);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.bottom() - 62, body.width - 24, 42), message,
+                    pixelui::kSmall);
   } else if (view == View::Status) {
-    std::snprintf(line, sizeof(line), "%s", dungeoncrawl::className(state.classId));
-    renderer.drawText(toybox::kUiFontId, 20, y, line, true, EpdFontFamily::BOLD);
-    std::snprintf(line, sizeof(line), "Level %u  XP %u/%u  Coins %u", state.level, state.xp, state.level * 100,
-                  state.coins);
-    renderer.drawText(toybox::kUiFontId, 20, y + 34, line);
-    std::snprintf(line, sizeof(line), "HP %u/%u  Mana %u/%u  Kills %u  Deaths %u", state.health, state.maxHealth,
-                  state.mana, state.maxMana, state.kills, state.deaths);
-    renderer.drawText(toybox::kUiFontId, 20, y + 58, line);
-    std::snprintf(line, sizeof(line), "Viewers %u  Rating %u  Catalog %u items", state.viewers, state.rating,
-                  dungeoncrawl::kCatalogSize);
-    renderer.drawText(toybox::kUiFontId, 20, y + 82, line);
+    dashboard::frame(screen, body);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 12, body.width - 24, 40),
+                    dungeoncrawl::className(state.classId), pixelui::kTitle, fui::TextAlign::Left);
+    std::snprintf(line, sizeof(line), "LEVEL %u   XP %u / %u   COINS %u", state.level, state.xp,
+                  state.level * 100u, state.coins);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 58, body.width - 24, 34), line, pixelui::kBody,
+                    fui::TextAlign::Left);
+    std::snprintf(line, sizeof(line), "HP %u/%u   MANA %u/%u   KILLS %u   DEATHS %u", state.health,
+                  state.maxHealth, state.mana, state.maxMana, state.kills, state.deaths);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 98, body.width - 24, 34), line, pixelui::kSmall,
+                    fui::TextAlign::Left);
+    std::snprintf(line, sizeof(line), "VIEWERS %u   RATING %u   BOSS FLOOR %u", state.viewers, state.rating,
+                  state.floor - state.floor % 5 + 5);
+    dashboard::text(screen, fui::makeRect(body.x + 12, body.y + 138, body.width - 24, 34), line, pixelui::kSmall,
+                    fui::TextAlign::Left);
   }
-  if (saveFailed)
-    renderer.drawText(toybox::kUiFontId, 20, renderer.getDisplayHeight() - 30, "Save failed");
+  if (saveFailed) dashboard::text(screen, fui::makeRect(body.x, body.bottom() - 24, body.width, 24), "SAVE FAILED",
+                                  pixelui::kSmall);
+  ready = true;
+  toybox::reportOverflow(interactions, "DCC", &renderer);
   renderer.displayBuffer();
 }

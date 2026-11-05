@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../activities/Activity.h"
+#include "../ui/ToyboxScreen.h"
 #include "DungeonCrawlCore.h"
 #include "DungeonCrawlStore.h"
 
@@ -22,6 +23,8 @@ class DungeonCrawlActivity final : public Activity {
   int selected = 0;
   bool dirty = false;
   bool saveFailed = false;
+   bool ready = false;
+   toybox::Interactions interactions;
   char message[160] = "Welcome to the crawl.";
   void save();
 };

@@ -3,14 +3,17 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <algorithm>
 
 namespace dungeoncrawl {
 
 inline constexpr uint16_t kCatalogSize = 1024;
 inline constexpr uint8_t kInventorySize = 24;
 inline constexpr uint8_t kSkillCount = 12;
+inline constexpr uint32_t kStateVersion = 0xDCC4331u;
 
 struct State {
+  uint32_t version = kStateVersion;
   uint32_t seed = 1;
   uint32_t xp = 0;
   uint32_t coins = 25;
@@ -96,6 +99,7 @@ inline void levelUp(State& state) {
 
 inline void newGame(State& state, uint32_t seed) {
   std::memset(&state, 0, sizeof(state));
+  state.version = kStateVersion;
   state.seed = seed ? seed : 1;
   state.health = state.maxHealth = 100;
   state.mana = state.maxMana = 50;
@@ -120,18 +124,30 @@ inline void advanceRoom(State& state) {
   }
 }
 
+inline const char* roomName(const State& state) {
+  static const char* rooms[] = {"Antechamber", "Loot Vault", "Monster Den", "Sponsor Arena", "Trap Gallery",
+                                "Medic Station", "Boss Gate", "Merchant Alcove"};
+  return rooms[(state.floor + state.room) % 8];
+}
+
+inline const char* enemyName(const State& state) {
+  static const char* enemies[] = {"Bonebutcher Beetle", "Dungeon Oracle", "Ash Hound", "Prism Goblin",
+                                  "Vault Warden", "Crawler Mimic", "Neon Basilisk", "Sponsor Agent"};
+  return enemies[(state.floor * 3u + state.room) % 8u];
+}
+
 inline bool fight(State& state) {
   const uint32_t roll = randomRange(state.seed, 100);
   const uint16_t enemyPower = static_cast<uint16_t>(5 + state.floor * 3 + randomRange(state.seed, 12));
   const uint16_t playerPower = static_cast<uint16_t>(8 + state.level * 4 + state.skills[1] * 3);
   ++state.kills;
-  ++state.questProgress;
   if (playerPower + roll / 3 >= enemyPower) {
+    if (state.questProgress < state.questGoal) ++state.questProgress;
     const uint32_t reward = 8u + state.floor * 4u + randomRange(state.seed, 10u);
     state.coins += reward;
     state.xp += 20u + state.floor * 5u;
-    state.viewers = static_cast<uint16_t>(state.viewers + randomRange(state.seed, 8u));
-    state.rating = static_cast<uint16_t>(state.rating + randomRange(state.seed, 5u));
+    state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + randomRange(state.seed, 8u)));
+    state.rating = static_cast<uint16_t>(std::min<uint32_t>(100u, state.rating + randomRange(state.seed, 5u)));
     const uint16_t loot = static_cast<uint16_t>(randomRange(state.seed, kCatalogSize));
     addItem(state, loot);
     levelUp(state);
