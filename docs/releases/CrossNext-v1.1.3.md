@@ -28,7 +28,7 @@ Activa **Ajustes > Lectura > Formatos de lectura > XTC / XTCH** para incluir est
 
 ## Install / Instalación
 
-For **Xteink X4 Pro only**. Follow the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md). Back up the microSD before updating. Firmware updates preserve saved data under `/.crosspoint/`.
+For **Xteink X4 Pro only**. Follow the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md). Back up the microSD before updating. Firmware updates preserve saved data under `/.crosspoint/`.
 
 **PET, Reading Quest and The Intercept require their microSD contents.** Extract `CrossNext-Resources.zip` to the card root so `/apps/pet/`, `/apps/reading-adventure/` and `/apps/intercept/` are directly on the card. The resource pack is unchanged; an already installed complete pack can stay. Updating the firmware does not install these contents.
 

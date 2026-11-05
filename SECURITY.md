@@ -5,11 +5,11 @@ CrossPoint Reader and the FreeInk SDK.
 
 ## Reporting a vulnerability
 
-Use this repository's [Security page](https://github.com/manuelx900/CrossNext/security)
+Use this repository's [Security page](https://github.com/AriSchoio/CNA-CrossNextAdvance/security)
 and private vulnerability reporting when that option is enabled. Do not post
 credentials, private reading data or a working exploit in a public issue.
 Non-sensitive crashes and reproducible defects can be reported through
-[GitHub Issues](https://github.com/manuelx900/CrossNext/issues).
+[GitHub Issues](https://github.com/AriSchoio/CNA-CrossNextAdvance/issues).
 
 Include the firmware version, device model and reproduction steps. Remove
 Wi-Fi details, tokens, personal documents and device identifiers from logs or

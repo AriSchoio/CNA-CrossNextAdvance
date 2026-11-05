@@ -28,7 +28,7 @@ This release is for **Xteink X4 Pro only**. Back up your microSD first.
 
 1. Install the application through **Settings → Device → Check for Updates**,
    or use the compatible microSD update route in the
-   [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+   [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 2. Extract the updated **CrossNext-Resources.zip** to the microSD root, merging
    its folders. PET, Reading Quest and The Intercept require their app contents.
    Keep your saved data and the bundled licence notices.
@@ -67,7 +67,7 @@ Solo para **Xteink X4 Pro**. Guarda primero una copia de tu microSD.
 
 1. Usa **Ajustes → Dispositivo → Verificar actualizaciones**, o la
    actualización compatible por microSD indicada en la
-   [guía de instalación](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+   [guía de instalación](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 2. Extrae **CrossNext-Resources.zip** actualizado en la raíz de la microSD,
    combinando sus carpetas. PET, Aventura lectora y The Intercept necesitan sus
    contenidos. Conserva tus partidas y los avisos de licencia del paquete.
@@ -81,4 +81,4 @@ La imagen de fábrica se usa únicamente por la vía USB de la guía de instalac
 
 Based on CrossPlay and CrossPoint Reader with the FreeInk SDK. Original project
 and resource licences remain in place. See the
-[credits](https://github.com/manuelx900/CrossNext/blob/xteink/docs/crossnext-changes.md).
+[credits](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/crossnext-changes.md).

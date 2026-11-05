@@ -33,7 +33,7 @@ void parse(const std::string& assets, bool expected) {
     if (expected) {
       check(
           std::strcmp(parser.getFirmwareUrl(),
-                      "https://github.com/manuelx900/CrossNext/releases/download/v1.0.1/CrossNext-X4PRO-OTA.bin") == 0,
+                      "https://github.com/AriSchoio/CNA-CrossNextAdvance/releases/download/v1.0.1/CrossNext-X4PRO-OTA.bin") == 0,
           "selected URL belongs to the application alias");
       check(parser.getFirmwareSize() == 7500000, "size belongs to selected asset");
     }
@@ -44,12 +44,12 @@ void parse(const std::string& assets, bool expected) {
 int main() {
   check(release_sources::kCount == 1, "one authoritative source");
   check(
-      std::strcmp(release_sources::kUrls[0], "https://api.github.com/repos/manuelx900/CrossNext/releases/latest") == 0,
+      std::strcmp(release_sources::kUrls[0], "https://api.github.com/repos/AriSchoio/CNA-CrossNextAdvance/releases/latest") == 0,
       "CrossNext GitHub release source");
   check(std::strcmp(CROSSPOINT_RELEASE_ASSET, "CrossNext-X4PRO-OTA.bin") == 0, "stable X4 Pro alias");
   const std::string application =
       asset(CROSSPOINT_RELEASE_ASSET,
-            "https://github.com/manuelx900/CrossNext/releases/download/v1.0.1/CrossNext-X4PRO-OTA.bin", 7500000);
+            "https://github.com/AriSchoio/CNA-CrossNextAdvance/releases/download/v1.0.1/CrossNext-X4PRO-OTA.bin", 7500000);
   const std::string others =
       asset("firmware.bin", "https://example.invalid/upstream.bin", 1) + "," +
       asset("CrossNext-X4PRO-Firmware-v1.0.1-factory.bin", "https://example.invalid/factory.bin", 2) + "," +

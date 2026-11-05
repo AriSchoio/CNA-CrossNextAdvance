@@ -53,7 +53,7 @@ entrega. Una instalación sin configuración previa comienza en inglés y permit
 cambiar a español en Configuración > Idioma. Una actualización conserva el idioma.
 
 La comprobación de actualizaciones consulta únicamente GitHub Releases de
-`manuelx900/CrossNext`. Cada Release debe adjuntar `CrossNext-X4PRO-OTA.bin`,
+`AriSchoio/CNA-CrossNextAdvance`. Cada Release debe adjuntar `CrossNext-X4PRO-OTA.bin`,
 idéntico a su aplicación versionada; no se instala el archivo factory por OTA.
 Wallpapers usa imágenes locales de la SD; se retiraron la descarga de fondos,
 el envío por QR desde móvil y Live heredados de CrossPlay.

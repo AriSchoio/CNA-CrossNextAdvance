@@ -70,12 +70,13 @@ configured separately. Saved Jersey 25 choices migrate to Noto Sans.
 - Pomodoro's physical button starts and pauses; XTC/XTCH can reverse swipes
   and page-tap zones for manga reading.
 
-The active shelf has **17 games and 14 apps**.
+The active shelf has **18 games and 14 apps**.
 
 ### Games
 
 | Game | Details |
 | --- | --- |
+| **DCC CRAWL** | Dungeon Crawler Carl adventure RPG. |
 | **CHESS** | Chess and puzzles. |
 | **CHECKERS** | English draughts. |
 | **GO** | Go with local play. |
@@ -182,7 +183,7 @@ Read [the installation guide](docs/install.md) and back up the microSD first.
 The plain X4/X3 use another chip; these packages do not target them or PaperMono.
 
 Use **Settings → Device → Check for Updates** to get updates from
-[CrossNext GitHub Releases](https://github.com/manuelx900/CrossNext/releases).
+[CrossNext GitHub Releases](https://github.com/AriSchoio/CNA-CrossNextAdvance/releases).
 The updater checks for a newer version and asks before installing the X4 Pro
 application. Release maintainers attach `CrossNext-X4PRO-OTA.bin` alongside the
 versioned ZIP; see [online updates](docs/install.md#online-update-source).

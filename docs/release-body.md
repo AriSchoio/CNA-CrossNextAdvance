@@ -24,7 +24,7 @@
 
 ## Install / Instalación
 
-**Xteink X4 Pro only.** Use `CrossNext-X4PRO-OTA.bin` for a compatible update from the firmware, or `CrossNext-X4PRO-Firmware-v1.2.0.zip` for application/factory images. Follow the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+**Xteink X4 Pro only.** Use `CrossNext-X4PRO-OTA.bin` for a compatible update from the firmware, or `CrossNext-X4PRO-Firmware-v1.2.0.zip` for application/factory images. Follow the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **Install the updated `CrossNext-Resources.zip` as well.** Power off the reader, extract the ZIP and merge `apps`, `fonts` and `dictionaries` into the microSD root, replacing the bundled resource files. The firmware update does not copy these files. The dictionary improvements require the updated dictionary folders. Keep your books, settings, saved words and `.crosspoint` folder.
 

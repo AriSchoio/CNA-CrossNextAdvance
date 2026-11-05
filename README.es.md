@@ -124,7 +124,7 @@ Usa el paquete que corresponda al modelo y conserva una copia de la microSD ante
 de actualizar. Los X4/X3 normales usan otro chip. Consulta
 [instalación y recuperación](docs/install.md) para la herramienta y los pasos.
 En **Ajustes → Dispositivo → Verificar actualizaciones** puedes buscar
-versiones nuevas en [GitHub Releases de CrossNext](https://github.com/manuelx900/CrossNext/releases).
+versiones nuevas en [GitHub Releases de CrossNext](https://github.com/AriSchoio/CNA-CrossNextAdvance/releases).
 Se solicita confirmación antes de instalar la aplicación para X4 Pro. Cada Release
 debe incluir `CrossNext-X4PRO-OTA.bin` como archivo adjunto independiente; consulta
 [la guía de instalación](docs/install.md#online-update-source).

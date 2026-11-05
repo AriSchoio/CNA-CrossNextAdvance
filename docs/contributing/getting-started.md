@@ -7,7 +7,7 @@ Keep the included `freeink-sdk/` sources when building this release.
 ## Obtain the sources
 
 ```sh
-git clone https://github.com/manuelx900/CrossNext.git
+git clone https://github.com/AriSchoio/CNA-CrossNextAdvance.git
 cd CrossNext
 ```
 

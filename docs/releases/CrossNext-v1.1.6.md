@@ -14,7 +14,7 @@
 
 ## Install / Instalación
 
-**Xteink X4 Pro only.** Use `CrossNext-X4PRO-Firmware-v1.1.6.zip` for installation or `CrossNext-X4PRO-OTA.bin` for a compatible firmware update. Back up the microSD before updating and follow the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+**Xteink X4 Pro only.** Use `CrossNext-X4PRO-Firmware-v1.1.6.zip` for installation or `CrossNext-X4PRO-OTA.bin` for a compatible firmware update. Back up the microSD before updating and follow the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **Solo Xteink X4 Pro.** El ZIP incluye las imágenes de aplicación y fábrica; usa `CrossNext-X4PRO-OTA.bin` para una actualización compatible desde el firmware. Guarda una copia de la microSD antes de actualizar.
 

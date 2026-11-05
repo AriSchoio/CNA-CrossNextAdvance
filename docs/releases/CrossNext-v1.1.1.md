@@ -16,7 +16,7 @@
 
 For **Xteink X4 Pro only**. Use the online updater from a compatible CrossNext
 installation, or install `CrossNext-X4PRO-Firmware-v1.1.1.bin` with the microSD
-firmware updater. Follow the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+firmware updater. Follow the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **PET, Reading Quest and The Intercept require their microSD contents.** Extract
 `CrossNext-Resources.zip` to the card root, so `/apps/pet/`,
@@ -51,7 +51,7 @@ Keep your books, saved data under `/.crosspoint/` and the included licences.
 
 Solo para **Xteink X4 Pro**. Usa el actualizador en línea desde una instalación
 compatible de CrossNext, o instala `CrossNext-X4PRO-Firmware-v1.1.1.bin` con el
-actualizador por microSD. Consulta la [guía de instalación](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+actualizador por microSD. Consulta la [guía de instalación](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **PET, Aventura lectora y The Intercept necesitan sus contenidos en la microSD.**
 Extrae `CrossNext-Resources.zip` en la raíz de la tarjeta, de modo que

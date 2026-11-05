@@ -9,7 +9,7 @@
 
 ### Install or update
 
-For **Xteink X4 Pro only**. Use the online updater from a compatible CrossNext installation, or the application image for a compatible microSD update. Follow the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+For **Xteink X4 Pro only**. Use the online updater from a compatible CrossNext installation, or the application image for a compatible microSD update. Follow the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **PET, Reading Quest and The Intercept need their microSD contents.** Extract `CrossNext-Resources.zip` to the card root so `/apps/pet/`, `/apps/reading-adventure/` and `/apps/intercept/` are directly on the card. The resources are unchanged from v1.1.0; an already installed complete pack can stay. Firmware updates do not install these contents. Preserve your books and saved data under `/.crosspoint/`.
 
@@ -22,7 +22,7 @@ For **Xteink X4 Pro only**. Use the online updater from a compatible CrossNext i
 
 ### Instalar o actualizar
 
-Solo para **Xteink X4 Pro**. Usa el actualizador en línea desde una instalación compatible de CrossNext, o la imagen de aplicación para una actualización compatible por microSD. Consulta la [guía de instalación](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+Solo para **Xteink X4 Pro**. Usa el actualizador en línea desde una instalación compatible de CrossNext, o la imagen de aplicación para una actualización compatible por microSD. Consulta la [guía de instalación](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **PET, Aventura lectora y The Intercept necesitan sus contenidos en la microSD.** Extrae `CrossNext-Resources.zip` en la raíz de la tarjeta, de modo que `/apps/pet/`, `/apps/reading-adventure/` y `/apps/intercept/` queden directamente en ella. Los recursos son los mismos de la v1.1.0; si ya instalaste el paquete completo, puedes conservarlo. Actualizar el firmware no instala esos contenidos. Conserva tus libros y los guardados de `/.crosspoint/`.
 

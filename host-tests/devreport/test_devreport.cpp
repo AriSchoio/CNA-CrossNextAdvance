@@ -386,7 +386,7 @@ void testIsOwnHost() {
 
 void testReleaseSources() {
   check(release_sources::kCount == 1, "CrossNext uses one authoritative release source");
-  check(std::string(release_sources::kUrls[0]) == "https://api.github.com/repos/manuelx900/CrossNext/releases/latest",
+  check(std::string(release_sources::kUrls[0]) == "https://api.github.com/repos/AriSchoio/CNA-CrossNextAdvance/releases/latest",
         "only CrossNext releases are queried");
   check(!devreport::reportsTo(true, release_sources::kUrls[0]),
         "GitHub update checks carry no inherited device report");

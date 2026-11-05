@@ -1,6 +1,6 @@
 # CrossNext User Guide
 
-Welcome to the **CrossNext** firmware, a fork of CrossPlay and CrossPoint for the Xteink X4 Pro and the Seeed reTerminal Sticky. This guide outlines the hardware controls, navigation, and reading features of the device.
+Welcome to the **CrossNext** firmware, a fork of CrossPlay and CrossPoint for the Xteink X4 Pro. This guide outlines the hardware controls, navigation, and reading features of the supported device.
 
 - [CrossNext User Guide](#crossnext-user-guide)
   - [1. Hardware Overview](#1-hardware-overview)

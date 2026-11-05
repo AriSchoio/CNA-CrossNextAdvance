@@ -48,11 +48,11 @@ También incluye:
 
 ## Installation / Instalación
 
-**Xteink X4 Pro only.** For a compatible firmware update, use the application image `CrossNext-X4PRO-OTA.bin`. The versioned firmware ZIP also contains application and factory images. **Do not select the factory image in the microSD updater.** See the [installation guide](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+**Xteink X4 Pro only.** For a compatible firmware update, use the application image `CrossNext-X4PRO-OTA.bin`. The versioned firmware ZIP also contains application and factory images. **Do not select the factory image in the microSD updater.** See the [installation guide](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **Install `CrossNext-Resources.zip` on the microSD as well.** Power off the reader, extract the ZIP and merge `apps`, `fonts` and `dictionaries` into the card's root, replacing the package files. PET, Reading Quest and The Intercept require their complete resource folders. Updating the firmware does not install these contents. Keep your books and the `.crosspoint` folder, which contains settings and saved data.
 
-**Solo Xteink X4 Pro.** Para una actualización compatible, utiliza la imagen de aplicación `CrossNext-X4PRO-OTA.bin`. El ZIP de firmware también incluye las imágenes de aplicación y fábrica. **No selecciones la imagen de fábrica en el actualizador de la microSD.** Consulta la [guía de instalación](https://github.com/manuelx900/CrossNext/blob/xteink/docs/install.md).
+**Solo Xteink X4 Pro.** Para una actualización compatible, utiliza la imagen de aplicación `CrossNext-X4PRO-OTA.bin`. El ZIP de firmware también incluye las imágenes de aplicación y fábrica. **No selecciones la imagen de fábrica en el actualizador de la microSD.** Consulta la [guía de instalación](https://github.com/AriSchoio/CNA-CrossNextAdvance/blob/xteink/docs/install.md).
 
 **Instala también `CrossNext-Resources.zip` en la microSD.** Con el lector apagado, extrae el ZIP y combina `apps`, `fonts` y `dictionaries` en la raíz de la tarjeta, reemplazando los archivos del paquete. PET, Aventura lectora y The Intercept necesitan sus carpetas completas de recursos. Actualizar el firmware no instala estos contenidos. Conserva tus libros y la carpeta `.crosspoint`, donde se guardan los ajustes y las partidas.
 

@@ -239,7 +239,7 @@ guide = read("docs/contributing/getting-started.md")
 check("SDK snapshot" in guide and "ordinary source files" in guide,
       "getting-started.md does not describe the included SDK sources")
 CLONE_CROSSNEXT = re.compile(
-    r"^(?:\$\s*)?git\s+clone\s+https://github\.com/manuelx900/CrossNext\.git\s*$", re.M)
+    r"^(?:\$\s*)?git\s+clone\s+https://github\.com/AriSchoio/CNA-CrossNextAdvance\.git\s*$", re.M)
 check(bool(CLONE_CROSSNEXT.search(guide)),
       "getting-started.md does not clone the CrossNext source repository")
 CLONE_UPSTREAM = re.compile(
