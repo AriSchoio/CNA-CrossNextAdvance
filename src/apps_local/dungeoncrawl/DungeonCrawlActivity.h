@@ -16,7 +16,7 @@ class DungeonCrawlActivity final : public Activity {
   void render(RenderLock&&) override;
 
  private:
-  enum class View { Menu, Dungeon, Inventory, Skills, Shop, Quests, Status, Help };
+  enum class View { Menu, Dungeon, Explore, Inventory, Skills, Shop, Quests, Status, Help };
   dungeoncrawl::State state;
   dungeoncrawl::Store store;
   View view = View::Menu;

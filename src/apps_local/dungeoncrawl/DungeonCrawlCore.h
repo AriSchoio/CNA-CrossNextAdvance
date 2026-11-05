@@ -10,7 +10,7 @@ namespace dungeoncrawl {
 inline constexpr uint16_t kCatalogSize = 1024;
 inline constexpr uint8_t kInventorySize = 24;
 inline constexpr uint8_t kSkillCount = 12;
-inline constexpr uint32_t kStateVersion = 0xDCC4331u;
+inline constexpr uint32_t kStateVersion = 0xDCC4333u;
 
 struct State {
   uint32_t version = kStateVersion;
@@ -45,6 +45,12 @@ struct State {
   uint8_t battleTurn = 0;
   uint8_t enemyIntent = 0;
   uint8_t combo = 0;
+  uint8_t eventId = 0;
+  uint8_t routeId = 0;
+  uint8_t npcId = 0;
+  uint8_t reputation = 50;
+  uint8_t attributePoints = 3;
+  uint16_t exploredNodes = 0;
 };
 
 inline uint32_t nextRandom(uint32_t& seed) {
@@ -68,6 +74,26 @@ inline const char* className(uint8_t id) {
 }
 
 inline const char* itemName(uint16_t id) {
+  static const char* specialNames[] = {
+      "Enchanted Broom", "Enchanted Toilet Brush", "Mongo's Bone Collar", "Mordecai's Training Signet",
+      "Prepotente's Horn", "Sascha's Signet", "Samantha's Scavenger Kit", "Imani's Training Blade",
+      "Juice Box Shield", "Odette's Moonblade", "Florin's Lucky Coin", "Rosetta's Resonance Key",
+      "Desperado Club Card", "Faction War Banner", "Sister Ines' Prayer Lantern", "Emberus Cinder",
+      "Larracos Ember Ring", "Tipid's Trick Lantern", "Rend's War Plate", "Firas' Bastion Key",
+      "Bautista's Rally Drum", "Lucia Mar's Navigator Lens", "Odette's Moonstone", "Mogro's War Harness",
+      "Mantes' System Token", "Santiago's Iron Will", "Desperado Healing Draught", "Courier's Guild Patch",
+      "Dungeon Guild Badge", "Floor Boss Contraband", "Borant Sponsor Seal", "Quasar Loot Core",
+      "Katia's Knife", "Chris's Exfiltration Map", "Rex's Survival Collar", "Princess Donut's Tiara",
+      "Mongo's Chain", "Newbie Village Compass", "Achievement: Bloodbath", "Achievement: Skullcrush",
+      "Lootbox Golden Key", "Necromancer's Tome", "Polymorph Potion", "Bunker Helmet",
+      "Overpowered Potion", "Bounty Hunter Contract", "Earth Mother Idol", "Moon Market Token",
+      "Royal Court Cipher", "Bedlam Bride's Vow", "Feral Gods Tablet", "Masquerade Mask",
+      "Parade Horror Bell", "Inevitable Ruin Shard", "Butcher's Cleaver", "Anarchist Cookbook",
+      "Doomsday Scenario Map", "Bedlam Bone Relic", "Quarry Key", "Train Station Token",
+      "Ocean's Razor", "Grendel's Iron Tooth", "Ginger's Lucky Charm", "Socrates' Memory Core",
+      "Hekla's Firebrand", "Tran's Field Kit", "Dong's Lucky Chopsticks", "Ferdinand's Royal Banner"
+  };
+  if (id < 64u) return specialNames[id];
   static const char* prefixes[] = {
       "Ash", "Prismatic", "Iron", "Moonlit", "Royal", "Cursed", "Ancient", "Storm",
       "Cracked", "Golden", "Void", "Runic", "Feral", "Solar", "Crystal", "Crawler"};
@@ -94,14 +120,100 @@ inline const char* skillName(uint8_t id) {
   return names[id % kSkillCount];
 }
 
+inline bool itemIsConsumable(uint16_t id) {
+  if (id < 64u) {
+    return id == 26u || id == 40u || id == 41u || id == 43u || id == 44u ||
+           id == 46u || id == 47u || id == 48u || id == 54u || id == 55u ||
+           id == 58u || id == 62u || id == 63u;
+  }
+  return (id % 12u) == 3u || (id % 12u) == 6u;
+}
+
+inline bool removeInventoryItem(State& state, uint16_t index) {
+  if (index >= state.inventoryCount) return false;
+  for (uint16_t i = index + 1u; i < state.inventoryCount; ++i) state.inventory[i - 1u] = state.inventory[i];
+  --state.inventoryCount;
+  return true;
+}
+
+inline uint8_t equipmentSlot(uint16_t id) {
+  const uint16_t type = id < 32u ? id % 12u : (id % kCatalogSize) / 16u % 12u;
+  if (type == 5u || type == 10u) return 0;
+  if (type == 1u || type == 8u) return 1;
+  if (type == 2u || type == 9u) return 2;
+  return 3;
+}
+
+inline bool useInventoryItem(State& state, uint16_t index) {
+  if (index >= state.inventoryCount) return false;
+  const uint16_t id = state.inventory[index];
+  if (itemIsConsumable(id)) {
+    state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 32u));
+    state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 12u));
+    removeInventoryItem(state, index);
+    return true;
+  }
+  state.equipped[equipmentSlot(id)] = id;
+  return true;
+}
+
+inline const char* npcName(uint8_t id) {
+  static const char* names[] = {
+      "Mordecai", "Samantha", "Imani", "Louis", "Prepotente", "Odette",
+      "Rosetta", "Florin", "Juice Box", "Elle", "Lucia Mar", "Sister Ines",
+      "Hekla", "Britney", "Tran", "Dong", "Chris", "Ferdinand",
+      "Santiago", "Bautista", "Rend", "Firas", "Bomo", "Orren"};
+  return names[id % 24u];
+}
+
+inline const char* npcRole(uint8_t id) {
+  static const char* roles[] = {
+      "Independent guide", "Scavenger quartermaster", "Combat instructor",
+      "Trade broker", "Arena champion", "Moon market informant",
+      "Signal engineer", "Lucky contract broker", "Sponsor envoy",
+      "Healer", "Explorer navigator", "Sanctuary keeper",
+      "Fire guild tactician", "Crowd favorite recruiter", "Field medic",
+      "Lucky contract trader", "Exfiltration specialist", "Royal envoy",
+      "Veteran strategist", "Faction rally captain", "War quartermaster",
+      "Bastion engineer", "Creature handler", "Arena judge"};
+  return roles[id % 24u];
+}
+
 inline void levelUp(State& state) {
-  if (state.xp < static_cast<uint32_t>(state.level * 100)) return;
-  state.xp -= state.level * 100;
-  ++state.level;
-  state.maxHealth += 12;
-  state.maxMana += 8;
-  state.health = state.maxHealth;
-  state.mana = state.maxMana;
+  while (state.xp >= static_cast<uint32_t>(state.level * 100u)) {
+    state.xp -= state.level * 100u;
+    ++state.level;
+    state.maxHealth += 12u;
+    state.maxMana += 8u;
+    state.attributePoints = static_cast<uint8_t>(std::min<uint32_t>(99u, state.attributePoints + 2u));
+    state.health = state.maxHealth;
+    state.mana = state.maxMana;
+  }
+}
+
+inline void advanceQuest(State& state) {
+  if (state.questProgress < state.questGoal) {
+    ++state.questProgress;
+    if (state.questProgress == state.questGoal) {
+      state.questProgress = 0;
+      state.coins += 20u + state.floor * 10u;
+      state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 5u));
+      if (state.inventoryCount < kInventorySize)
+        addItem(state, static_cast<uint16_t>(randomRange(state.seed, 64u)));
+      const uint32_t stage = state.floor + state.room / 4u;
+      if (stage % 4u == 0u) {
+        std::snprintf(state.quest, sizeof(state.quest), "Clear a boss encounter");
+        state.questGoal = 1;
+      } else if (stage % 3u == 0u) {
+        std::snprintf(state.quest, sizeof(state.quest), "Explore dangerous floor routes");
+        state.questGoal = 4;
+      } else {
+        std::snprintf(state.quest, sizeof(state.quest), "Defeat floor monsters");
+        state.questGoal = 3;
+      }
+    }
+    return;
+  }
 }
 
 inline void newGame(State& state, uint32_t seed) {
@@ -116,8 +228,69 @@ inline void newGame(State& state, uint32_t seed) {
   state.level = 1;
   state.coins = 25;
   state.inDungeon = true;
+  state.questProgress = 0;
+  state.questGoal = 3;
+  std::snprintf(state.quest, sizeof(state.quest), "Defeat 3 floor monsters");
+  state.eventId = 0;
+  state.routeId = 0;
+  state.npcId = 0;
+  state.reputation = 50;
+  state.attributePoints = 3;
+  state.exploredNodes = 0;
   addItem(state, static_cast<uint16_t>(randomRange(state.seed, kCatalogSize)));
   addItem(state, 64u);
+}
+
+enum class ExploreChoice : uint8_t { Investigate = 0, Trade = 1, Rest = 2, Challenge = 3 };
+
+inline void beginEncounter(State& state);
+
+inline const char* eventName(uint8_t eventId) {
+  static const char* events[] = {
+      "Collapsed Transit Hub", "Sponsor Auction", "NPC Refuge", "Loot Cache",
+      "Faction Ambush", "Ancient Flood Channel", "Boss Antechamber",
+      "Moon Market", "Butcher's Masquerade", "Bedlam Warcamp", "Feral God Shrine",
+      "Inevitable Ruin Vault"};
+  return events[eventId % 12u];
+}
+
+inline bool explore(State& state, ExploreChoice choice) {
+  state.eventId = static_cast<uint8_t>(randomRange(state.seed, 12u));
+  state.routeId = static_cast<uint8_t>(randomRange(state.seed, 4u));
+  state.npcId = static_cast<uint8_t>(randomRange(state.seed, 24u));
+  state.exploredNodes++;
+
+  if (choice == ExploreChoice::Rest) {
+    state.health = state.maxHealth;
+    state.mana = state.maxMana;
+    state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 3u));
+    return true;
+  }
+  if (choice == ExploreChoice::Trade) {
+    const uint16_t price = static_cast<uint16_t>(6u + state.floor);
+    if (state.coins >= price) {
+      state.coins -= price;
+      state.reputation = static_cast<uint8_t>(std::min<uint32_t>(100u, state.reputation + 4u));
+      if (state.inventoryCount < kInventorySize)
+        addItem(state, static_cast<uint16_t>(randomRange(state.seed, kCatalogSize)));
+    }
+    return true;
+  }
+  if (choice == ExploreChoice::Challenge) {
+    beginEncounter(state);
+  } else {
+    const uint32_t reward = 4u + randomRange(state.seed, 10u);
+    state.coins += reward;
+    state.xp += 12u + state.floor * 2u;
+    if (choice == ExploreChoice::Investigate && state.quest[0] != '\0' &&
+        std::strstr(state.quest, "Explore dangerous floor routes") != nullptr) {
+      advanceQuest(state);
+    }
+    if (state.inventoryCount < kInventorySize && randomRange(state.seed, 100u) < 70u)
+      addItem(state, static_cast<uint16_t>(randomRange(state.seed, kCatalogSize)));
+    levelUp(state);
+  }
+  return false;
 }
 
 inline void advanceRoom(State& state) {
@@ -132,22 +305,34 @@ inline void advanceRoom(State& state) {
 }
 
 inline const char* roomName(const State& state) {
-  static const char* rooms[] = {"Antechamber", "Loot Vault", "Monster Den", "Sponsor Arena", "Trap Gallery",
-                                "Medic Station", "Boss Gate", "Merchant Alcove"};
-  return rooms[(state.floor + state.room) % 8];
+  static const char* rooms[] = {"Transit Antechamber", "Moon Market", "Monster Burrow", "Sponsor Arena",
+                                "Trap Gallery", "Medic Station", "Faction War Gate", "Merchant Alcove",
+                                "Masquerade Hall", "Bedlam Bridge", "Feral Shrine", "Vault of Ruin"};
+  return rooms[(state.floor + state.room) % 12];
 }
 
 inline const char* enemyName(const State& state) {
-  static const char* enemies[] = {"Bonebutcher Beetle", "Dungeon Oracle", "Ash Hound", "Prism Goblin",
-                                  "Vault Warden", "Crawler Mimic", "Neon Basilisk", "Sponsor Agent"};
-  return enemies[(state.floor * 3u + state.room) % 8u];
+  static const char* enemies[] = {
+      "Bonebutcher Beetle", "Dungeon Oracle", "Ash Hound", "Prism Goblin",
+      "Vault Warden", "Crawler Mimic", "Neon Basilisk", "Sponsor Agent",
+      "Masquerade Ghoul", "Feral Godling", "Bedlam Warconstruct", "Ruin Devourer",
+      "Faction Hound", "Anarchist Trapper", "Bunker Automat", "Parade Horror"};
+  if (state.room == 12u) {
+    static const char* bosses[] = {"Klementine the Butcher", "The Bedlam Bride", "Emberus the Judge",
+                                   "The Feral God Warden", "Quasar Vault Tyrant"};
+    return bosses[(state.floor + state.room / 3u) % 5u];
+  }
+  return enemies[(state.floor * 3u + state.room) % 16u];
 }
 
 inline void beginEncounter(State& state) {
   if (state.enemyMaxHealth != 0) return;
-  state.enemyMaxHealth = static_cast<uint16_t>(18 + state.floor * 7 + randomRange(state.seed, 18u));
+  const bool boss = state.room == 12u;
+  state.enemyMaxHealth = static_cast<uint16_t>((boss ? 55 : 18) + state.floor * (boss ? 12 : 7) +
+                                               randomRange(state.seed, boss ? 35u : 18u));
   state.enemyHealth = state.enemyMaxHealth;
-  state.enemyPower = static_cast<uint16_t>(4 + state.floor * 2 + randomRange(state.seed, 8u));
+  state.enemyPower = static_cast<uint16_t>((state.room == 12u ? 9u : 4u) + state.floor * 2 +
+                                           randomRange(state.seed, state.room == 12u ? 14u : 8u));
   state.guard = 0;
   state.battleTurn = 1;
   state.combo = 0;
@@ -156,12 +341,7 @@ inline void beginEncounter(State& state) {
 
 inline bool usePotion(State& state) {
   for (uint16_t i = 0; i < state.inventoryCount; ++i) {
-    if ((state.inventory[i] % 12u) == 3u || (state.inventory[i] % 12u) == 6u) {
-      state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 28u));
-      for (uint16_t n = i + 1; n < state.inventoryCount; ++n) state.inventory[n - 1] = state.inventory[n];
-      --state.inventoryCount;
-      return true;
-    }
+    if (itemIsConsumable(state.inventory[i])) return useInventoryItem(state, i);
   }
   state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 12u));
   return true;
@@ -177,6 +357,8 @@ inline bool battleTurn(State& state, BattleAction action) {
       state.enemyMaxHealth = 0;
       state.guard = 0;
       state.combo = 0;
+      state.viewers = static_cast<uint16_t>(std::max<uint32_t>(0u, state.viewers > 2u ? state.viewers - 2u : 0u));
+      advanceRoom(state);
       return true;
     }
   }
@@ -184,6 +366,9 @@ inline bool battleTurn(State& state, BattleAction action) {
   uint16_t damage = 0;
   if (action == BattleAction::Attack) {
     damage = static_cast<uint16_t>(10 + state.level * 2 + state.skills[1] * 3 + randomRange(state.seed, 8u));
+    for (uint8_t slot = 0; slot < 4u; ++slot) {
+      if (state.equipped[slot] != 0u) damage += static_cast<uint16_t>(itemPower(state.equipped[slot]) / 4u);
+    }
     damage += state.combo * 2u;
     state.combo = static_cast<uint8_t>(std::min<uint32_t>(5u, state.combo + 1u));
   } else if (action == BattleAction::Arcane) {
@@ -211,11 +396,14 @@ inline bool battleTurn(State& state, BattleAction action) {
     state.coins += reward;
     state.xp += 24u + state.floor * 7u;
     state.kills++;
-    if (state.questProgress < state.questGoal) ++state.questProgress;
+    advanceQuest(state);
     state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 4u + randomRange(state.seed, 8u)));
     state.rating = static_cast<uint16_t>(std::min<uint32_t>(100u, state.rating + randomRange(state.seed, 5u)));
-    if (state.inventoryCount < kInventorySize)
-      state.inventory[state.inventoryCount++] = static_cast<uint16_t>(randomRange(state.seed, kCatalogSize));
+    if (state.inventoryCount < kInventorySize) {
+      const bool significant = randomRange(state.seed, 100u) < 24u;
+      state.inventory[state.inventoryCount++] = static_cast<uint16_t>(significant ? randomRange(state.seed, 64u)
+                                                                                 : randomRange(state.seed, kCatalogSize));
+    }
     levelUp(state);
     state.enemyMaxHealth = 0;
     state.enemyPower = 0;
@@ -260,7 +448,7 @@ inline bool fight(State& state) {
   const uint16_t playerPower = static_cast<uint16_t>(8 + state.level * 4 + state.skills[1] * 3);
   ++state.kills;
   if (playerPower + roll / 3 >= enemyPower) {
-    if (state.questProgress < state.questGoal) ++state.questProgress;
+    advanceQuest(state);
     const uint32_t reward = 8u + state.floor * 4u + randomRange(state.seed, 10u);
     state.coins += reward;
     state.xp += 20u + state.floor * 5u;
