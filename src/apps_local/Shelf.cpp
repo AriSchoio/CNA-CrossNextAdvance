@@ -15,6 +15,7 @@
 #include "ShelfHidden.h"
 #include "ShelfState.h"
 #include "battleship/BattleshipActivity.h"
+#include "browser/BrowserActivity.h"
 #include "carnivoro/CarnivoroActivity.h"
 #include "carnivoro/CarnivoroIcon.h"
 #include "checkers/DraughtsActivity.h"
@@ -97,6 +98,7 @@ constexpr shelf::Item kApps[] = {
     {"CALENDAR", &extra_calendar_32, &ToolsActivity::calendar},
     {"CLOCK", &extra_clock_32, &ToolsActivity::clock},
     {"COUNTER", &icon_calculator_32, &ToolsActivity::counter},
+    {"WEB BROWSER", &icon_book_32, &BrowserActivity::create},
 };
 
 // The two rows Home grows, in reading order. Titles are Title Case because
@@ -370,6 +372,7 @@ const char* label(const char* stableTitle) {
   if (std::strcmp(stableTitle, "TO DO LIST") == 0) return tr(STR_UI_TO_DO_LIST_D61BE9);
   if (std::strcmp(stableTitle, "NOTES") == 0) return tr(STR_UI_NOTES_E69FC1);
   if (std::strcmp(stableTitle, "HABITS") == 0) return tr(STR_UI_HABITS_630758);
+  if (std::strcmp(stableTitle, "WEB BROWSER") == 0) return tr(STR_UI_WEB_BROWSER);
   if (std::strcmp(stableTitle, "Games") == 0) return tr(STR_SHORT_GAMES);
   return stableTitle;
 }
