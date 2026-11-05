@@ -3,7 +3,7 @@
 #include "../ui/ToyboxScreen.h"
 namespace quotesui {
 namespace fui = freeink::ui;
-enum : fui::ActionId { Tab = 1, Sort, Open, Favorite, Page, Remove, ConfirmRemove, Cancel, Back };
+enum : fui::ActionId { Tab = 1, Sort, Open, Favorite, Page, Note, Remove, ConfirmRemove, Cancel, Back };
 struct Row {
   char title[192]{}, author[128]{}, preview[320]{};
   int index = 0, page = 0, count = 0, favorites = 0;
@@ -24,6 +24,7 @@ struct DetailModel {
   const char* author = "";
   const char* body = "";
   const char* saved = "";
+  const char* note = "";
   int page = 0, index = 0, total = 0, bodyPage = 0;
   bool favorite = false;
 };

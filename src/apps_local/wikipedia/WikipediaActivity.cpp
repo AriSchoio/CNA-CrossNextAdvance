@@ -508,7 +508,15 @@ void WikipediaActivity::pushHistory() {
 void WikipediaActivity::popHistory() {
   if (history_.empty()) {
     closeArticle();
+    if (query_.size() > 120) {
+      query_.resize(120);
+      while (!query_.empty() && (static_cast<uint8_t>(query_.back()) & 0xC0) == 0x80) query_.pop_back();
+    }
+    const std::string initialQuery = query_;
     go(View::Search);
+    refreshResults();
+    wikipedia::IndexEntry exact;
+    if (!initialQuery.empty() && pack_.find(initialQuery, exact)) openTitle(exact.title);
     return;
   }
   const Visit back = history_.back();

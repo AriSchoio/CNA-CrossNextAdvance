@@ -41,7 +41,7 @@ struct PageResult {
 };
 
 struct ClippingResult {
-  enum class Action : uint8_t { Clip, Lookup, Bookmark, Translate };
+  enum class Action : uint8_t { Clip, Lookup, Bookmark, Translate, Wikipedia };
   Action action = Action::Clip;
   std::string text;
   std::string sentence;

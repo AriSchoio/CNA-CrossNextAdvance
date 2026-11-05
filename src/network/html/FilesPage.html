@@ -278,6 +278,13 @@
     .modal.image-preview-mode {
       max-width: 640px;
     }
+    .modal.metadata-editor-mode {
+      max-width: 720px;
+    }
+    #epubMetadataModal textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
     .image-preview-stage {
       display: flex;
       justify-content: center;
@@ -1942,6 +1949,28 @@
   </div>
 </div>
 
+<!-- EPUB metadata editor -->
+<div class="modal-overlay" id="epubMetadataModal">
+  <div class="modal metadata-editor-mode">
+    <button class="modal-close" onclick="closeEpubMetadata()" aria-label="Close">&times;</button>
+    <h3>Edit EPUB details</h3>
+    <div class="folder-form">
+      <p class="file-info" id="epubMetadataFileName"></p>
+      <label>Title<input id="epubMetaTitle" class="folder-input" maxlength="512" type="text"></label>
+      <label>Author<input id="epubMetaAuthor" class="folder-input" maxlength="512" type="text"></label>
+      <label>Language tag<input id="epubMetaLanguage" class="folder-input" maxlength="64" type="text" placeholder="en"></label>
+      <label>Publisher<input id="epubMetaPublisher" class="folder-input" maxlength="512" type="text"></label>
+      <label>Series<input id="epubMetaSeries" class="folder-input" maxlength="512" type="text"></label>
+      <label>Series number<input id="epubMetaSeriesIndex" class="folder-input" maxlength="32" type="text"></label>
+      <label>Subjects, separated by semicolons<input id="epubMetaSubjects" class="folder-input" maxlength="1024" type="text"></label>
+      <label>Description<textarea id="epubMetaDescription" class="folder-input" maxlength="8192"></textarea></label>
+      <p id="epubMetadataStatus" class="file-info" role="status" aria-live="polite"></p>
+      <button id="epubMetadataSave" class="rename-btn-confirm" onclick="saveEpubMetadata()">Save details</button>
+      <button class="delete-btn-cancel" onclick="closeEpubMetadata()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Move Modal -->
 <div class="modal-overlay" id="moveModal">
   <div class="modal">
@@ -2082,6 +2111,7 @@
           if (overlay.id === 'folderModal') return closeFolderModal();
           if (overlay.id === 'deleteModal') return closeDeleteModal();
           if (overlay.id === 'renameModal') return closeRenameModal();
+          if (overlay.id === 'epubMetadataModal') return closeEpubMetadata();
           if (overlay.id === 'moveModal') return closeMoveModal();
           if (overlay.id === 'imagePreviewModal') return closeImagePreview();
           overlay.classList.remove('open');
@@ -2209,6 +2239,7 @@
           fileTableContent += `<td class="actions-col"><div class="action-icon-group">`;
           fileTableContent += `<button class="move-btn" data-action="move" data-name="${escapeHtml(file.name)}" data-path="${escapeHtml(filePath)}" title="Move file">📂</button>`;
           fileTableContent += `<button class="rename-btn" data-action="rename" data-name="${escapeHtml(file.name)}" data-path="${escapeHtml(filePath)}" title="Rename file">✏️</button>`;
+          if (file.isEpub) fileTableContent += `<button class="rename-btn" data-action="metadata" data-name="${escapeHtml(file.name)}" data-path="${escapeHtml(filePath)}" title="Edit EPUB details" aria-label="Edit EPUB details">📖</button>`;
           fileTableContent += `<button class="delete-btn" data-action="delete" data-name="${escapeHtml(file.name)}" data-path="${escapeHtml(filePath)}" data-folder="false" title="Delete file">🗑️</button>`;
           fileTableContent += `</div></td>`;
           fileTableContent += '</tr>';
@@ -3122,6 +3153,8 @@
         openMoveModal(name, path);
       } else if (btn.dataset.action === 'rename') {
         openRenameModal(name, path);
+      } else if (btn.dataset.action === 'metadata') {
+        openEpubMetadata(name, path);
       } else if (btn.dataset.action === 'delete') {
         openDeleteModal(name, path, btn.dataset.folder === 'true');
       }
@@ -4076,6 +4109,200 @@ async function getMetadataFilenameForEpub(file) {
                  authorEl?.getAttributeNS('http://www.idpf.org/2007/opf', 'file-as') ||
                  '';
   return buildMetadataFilename(title, author);
+}
+
+let epubMetadataPath = '';
+let epubMetadataZip = null;
+let epubMetadataOpfPath = '';
+const epubDcNamespace = 'http://purl.org/dc/elements/1.1/';
+const epubOpfNamespace = 'http://www.idpf.org/2007/opf';
+
+function epubElements(doc, localName) {
+  return Array.from(doc.getElementsByTagNameNS('*', localName));
+}
+
+function epubAuthorNode(doc) {
+  const creators = epubElements(doc, 'creator');
+  const role = node => (node.getAttribute('role') || node.getAttribute('opf:role') ||
+    node.getAttributeNS(epubOpfNamespace, 'role') || '').toLowerCase();
+  return creators.find(node => role(node) === 'aut') || creators[0] || null;
+}
+
+function epubMetaByName(doc, name) {
+  return epubElements(doc, 'meta').find(node => node.getAttribute('name') === name) || null;
+}
+
+function epubSeriesMeta(doc) {
+  return epubMetaByName(doc, 'calibre:series') || epubElements(doc, 'meta')
+    .find(node => node.getAttribute('property') === 'belongs-to-collection') || null;
+}
+
+function setEpubDcValue(doc, localName, value, creator = false) {
+  const metadata = epubElements(doc, 'metadata')[0];
+  if (!metadata) throw new Error('The EPUB package has no metadata element.');
+  const nodes = epubElements(doc, localName);
+  const node = creator ? epubAuthorNode(doc) : nodes[0] || null;
+  if (!value) {
+    if (node) node.remove();
+    return;
+  }
+  let target = node;
+  if (!target) {
+    const root = doc.documentElement;
+    if (!root.lookupNamespaceURI('dc')) root.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:dc', epubDcNamespace);
+    target = doc.createElementNS(epubDcNamespace, 'dc:' + localName);
+    if (creator) {
+      if (!root.lookupNamespaceURI('opf')) root.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:opf', epubOpfNamespace);
+      target.setAttributeNS(epubOpfNamespace, 'opf:role', 'aut');
+    }
+    metadata.appendChild(target);
+  }
+  target.textContent = value;
+}
+
+function setEpubCalibreMeta(doc, name, value) {
+  let node = epubMetaByName(doc, name);
+  const metadata = epubElements(doc, 'metadata')[0];
+  if (!metadata) throw new Error('The EPUB package has no metadata element.');
+  if (!value) {
+    if (node) node.remove();
+    return;
+  }
+  if (!node) {
+    node = doc.createElementNS(metadata.namespaceURI, (metadata.prefix ? metadata.prefix + ':' : '') + 'meta');
+    node.setAttribute('name', name);
+    metadata.appendChild(node);
+  }
+  node.setAttribute('content', value);
+}
+
+async function openEpubMetadata(name, path) {
+  const overlay = document.getElementById('epubMetadataModal');
+  const status = document.getElementById('epubMetadataStatus');
+  const saveButton = document.getElementById('epubMetadataSave');
+  epubMetadataPath = path;
+  epubMetadataZip = null;
+  epubMetadataOpfPath = '';
+  document.getElementById('epubMetadataFileName').textContent = name;
+  status.textContent = 'Reading EPUB package…';
+  overlay.classList.add('open');
+  saveButton.disabled = true;
+  try {
+    const response = await fetch(downloadUrl(path), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Could not download the EPUB (' + response.status + ').');
+    epubMetadataZip = await JSZip.loadAsync(await response.blob());
+    epubMetadataOpfPath = await findOPFPath(epubMetadataZip);
+    if (!epubMetadataOpfPath || !epubMetadataZip.files[epubMetadataOpfPath]) throw new Error('No OPF package was found.');
+    const doc = new DOMParser().parseFromString(await safeReadText(epubMetadataZip.files[epubMetadataOpfPath]), 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('The EPUB metadata XML is malformed.');
+    const author = epubAuthorNode(doc);
+    const series = epubSeriesMeta(doc);
+    const seriesIndex = epubMetaByName(doc, 'calibre:series_index');
+    const subjects = epubElements(doc, 'subject').map(node => node.textContent.trim()).filter(Boolean);
+    document.getElementById('epubMetaTitle').value = epubElements(doc, 'title')[0]?.textContent.trim() || '';
+    document.getElementById('epubMetaAuthor').value = author?.textContent.trim() || '';
+    document.getElementById('epubMetaLanguage').value = epubElements(doc, 'language')[0]?.textContent.trim() || '';
+    document.getElementById('epubMetaPublisher').value = epubElements(doc, 'publisher')[0]?.textContent.trim() || '';
+    document.getElementById('epubMetaDescription').value = epubElements(doc, 'description')[0]?.textContent.trim() || '';
+    document.getElementById('epubMetaSubjects').value = subjects.join('; ');
+    document.getElementById('epubMetaSeries').value = series?.getAttribute('content') || series?.textContent.trim() || '';
+    document.getElementById('epubMetaSeriesIndex').value = seriesIndex?.getAttribute('content') || '';
+    status.textContent = 'Edit the fields you want to change.';
+    saveButton.disabled = false;
+  } catch (error) {
+    status.textContent = error.message || 'Could not read this EPUB.';
+  }
+}
+
+function closeEpubMetadata() {
+  document.getElementById('epubMetadataModal').classList.remove('open');
+  epubMetadataZip = null;
+  epubMetadataOpfPath = '';
+  epubMetadataPath = '';
+}
+
+function uploadStagedEpub(file, parent) {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', file);
+    const request = new XMLHttpRequest();
+    request.open('POST', '/upload?path=' + encodeURIComponent(parent), true);
+    request.onload = () => request.status === 200 ? resolve() : reject(new Error(request.responseText || 'Upload failed.'));
+    request.onerror = () => reject(new Error('Network error while uploading the edited EPUB.'));
+    request.send(form);
+  });
+}
+
+async function removeStagedEpub(path) {
+  if (!path) return;
+  const form = new URLSearchParams();
+  form.set('paths', JSON.stringify([path]));
+  try { await fetch('/delete', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form }); }
+  catch (error) { console.warn('Could not remove EPUB edit staging file:', error); }
+}
+
+async function saveEpubMetadata() {
+  if (!epubMetadataZip || !epubMetadataOpfPath || !epubMetadataPath) return;
+  const saveButton = document.getElementById('epubMetadataSave');
+  const status = document.getElementById('epubMetadataStatus');
+  const title = document.getElementById('epubMetaTitle').value.trim();
+  if (!title) {
+    status.textContent = 'A title is required.';
+    document.getElementById('epubMetaTitle').focus();
+    return;
+  }
+  saveButton.disabled = true;
+  let stagedPath = '';
+  status.textContent = 'Writing EPUB metadata…';
+  try {
+    const xml = await safeReadText(epubMetadataZip.files[epubMetadataOpfPath]);
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('The EPUB metadata XML is malformed.');
+    setEpubDcValue(doc, 'title', title);
+    setEpubDcValue(doc, 'creator', document.getElementById('epubMetaAuthor').value.trim(), true);
+    setEpubDcValue(doc, 'language', document.getElementById('epubMetaLanguage').value.trim());
+    setEpubDcValue(doc, 'publisher', document.getElementById('epubMetaPublisher').value.trim());
+    setEpubDcValue(doc, 'description', document.getElementById('epubMetaDescription').value.trim());
+    for (const subject of epubElements(doc, 'subject')) subject.remove();
+    const metadata = epubElements(doc, 'metadata')[0];
+    const subjectValues = document.getElementById('epubMetaSubjects').value.split(';').map(value => value.trim()).filter(Boolean);
+    if (subjectValues.length && !doc.documentElement.lookupNamespaceURI('dc'))
+      doc.documentElement.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:dc', epubDcNamespace);
+    for (const value of subjectValues) {
+      const subject = doc.createElementNS(epubDcNamespace, 'dc:subject');
+      subject.textContent = value;
+      metadata.appendChild(subject);
+    }
+    setEpubCalibreMeta(doc, 'calibre:series', document.getElementById('epubMetaSeries').value.trim());
+    setEpubCalibreMeta(doc, 'calibre:series_index', document.getElementById('epubMetaSeriesIndex').value.trim());
+    epubMetadataZip.file(epubMetadataOpfPath, new XMLSerializer().serializeToString(doc));
+    const mimetype = epubMetadataZip.file('mimetype');
+    if (mimetype) epubMetadataZip.file('mimetype', await mimetype.async('uint8array'), { compression: 'STORE' });
+    const archive = await epubMetadataZip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/epub+zip',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 4 }
+    });
+    const slash = epubMetadataPath.lastIndexOf('/');
+    const parent = slash <= 0 ? '/' : epubMetadataPath.substring(0, slash);
+    const stagedName = 'cnmeta-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8) + '.epub';
+    stagedPath = (parent === '/' ? '' : parent) + '/' + stagedName;
+    await uploadStagedEpub(new File([archive], stagedName, { type: 'application/epub+zip' }), parent);
+    status.textContent = 'Installing edited book…';
+    const response = await fetch('/api/epub/replace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ target: epubMetadataPath, staged: stagedPath })
+    });
+    if (!response.ok) throw new Error(await response.text() || 'Could not install the edited EPUB.');
+    status.textContent = 'Saved. Refreshing the file list…';
+    window.location.reload();
+  } catch (error) {
+    await removeStagedEpub(stagedPath);
+    status.textContent = error.message || 'Could not save EPUB metadata.';
+    saveButton.disabled = false;
+  }
 }
 
 async function maybeRenameEbookFile(file) {

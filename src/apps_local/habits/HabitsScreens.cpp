@@ -154,7 +154,8 @@ void buildToday(toybox::Screen& screen, const TodayModel& model) {
   const auto progress =
       wide ? fui::makeRect(navRight + 8, body.y, progressW, 48) : fui::makeRect(body.x, body.y + 60, body.width, 40);
   dashboard::frame(screen, progress, 2);
-  const auto progressLabel = fui::makeRect(progress.x + 10, progress.y, progress.width - 104, progress.height);
+    const int progressTextHeight = progress.height - 12;
+    const auto progressLabel = fui::makeRect(progress.x + 10, progress.y, progress.width - 104, progressTextHeight);
   if (wide && day != model.today) {
     pixelui::copyCaps(label, sizeof(label), tr(STR_HABITS_DAILY_PROGRESS));
     fittext::draw(screen.target(), progressLabel, label, 3, 2);
@@ -166,7 +167,7 @@ void buildToday(toybox::Screen& screen, const TodayModel& model) {
                     3, fui::TextAlign::Left);
   }
   std::snprintf(label, sizeof(label), "%d / %d", done, count);
-  dashboard::digits(screen, fui::makeRect(progress.right() - 88, progress.y + 10, 78, progress.height - 20), label);
+    dashboard::digits(screen, fui::makeRect(progress.right() - 88, progress.y + 4, 78, progressTextHeight - 8), label);
   const int capacity = todayCapacity(screen.device()), first = model.page * capacity;
   if (!count) {
     dashboard::text(screen, fui::makeRect(body.x, body.y + summaryHeight(screen.device()) + 8, body.width, 64),
@@ -175,6 +176,14 @@ void buildToday(toybox::Screen& screen, const TodayModel& model) {
                       tr(STR_UI_ADD_YOUR_FIRST_HABIT_0DC70E), ActionAdd, &extra_reading_book_32, true);
     return;
   }
+    const auto progressRail = fui::makeRect(progress.x + 8, progress.bottom() - 8, progress.width - 16, 4);
+    screen.target().fill(progressRail, fui::Paint::solid(fui::Color::LightGray));
+    if (count > 0 && done > 0) {
+      const int completedWidth = progressRail.width * done / count;
+      if (completedWidth > 0)
+        screen.target().fill(fui::makeRect(progressRail.x, progressRail.y, completedWidth, progressRail.height),
+                             dashboard::ink);
+    }
   for (int n = 0; n < capacity && first + n < count; ++n) {
     const int index = habits::indexOnDay(*model.store, day, first + n);
     const auto& habit = model.store->items[index];
@@ -261,9 +270,9 @@ void buildDetail(toybox::Screen& screen, const DetailModel& model) {
   const auto body = contentBand(screen.device());
   const bool wide = body.width > body.height;
   const auto info = fui::makeRect(body.x, body.y, wide ? body.width * 2 / 5 : body.width, 212);
-  dashboard::icon(screen, fui::makeRect(info.x + 4, info.y, 52, 52), habitIcon(habit.name));
-  dashboard::text(screen, fui::makeRect(info.x + 70, info.y, info.width - 70, 34), habit.name, 1, fui::TextAlign::Left);
-  dashboard::prose(screen, fui::makeRect(info.x + 70, info.y + 35, info.width - 70, 24), tr(STR_HABITS_STATISTICS),
+  drawHabit(screen, fui::makeRect(info.x + 4, info.y, 64, 64), habit.name);
+  dashboard::text(screen, fui::makeRect(info.x + 82, info.y, info.width - 82, 38), habit.name, 1, fui::TextAlign::Left);
+  dashboard::prose(screen, fui::makeRect(info.x + 82, info.y + 39, info.width - 82, 24), tr(STR_HABITS_STATISTICS),
                    fui::TextAlign::Left);
   static constexpr StrId names[] = {StrId::STR_HABITS_CURRENT, StrId::STR_HABITS_BEST, StrId::STR_HABITS_CHECK_INS,
                                     StrId::STR_HABITS_RECENT_PERCENT};

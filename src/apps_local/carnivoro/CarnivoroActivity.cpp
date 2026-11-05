@@ -194,7 +194,7 @@ void CarnivoroActivity::back() {
       model.view = View::Menu;
       break;
     case View::Intro:
-      model.view = View::Menu;
+      model.view = model.campaign ? View::Cases : View::Menu;
       break;
     case View::Overview:
       model.view = carnivoro::closed(state, state.caseId) ? View::Solution : View::Statements;

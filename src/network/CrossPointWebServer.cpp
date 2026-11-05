@@ -242,6 +242,7 @@ void CrossPointWebServer::begin() {
 
     // Rename file endpoint
     server->on("/rename", HTTP_POST, [this] { handleRename(); });
+    server->on("/api/epub/replace", HTTP_POST, [this] { handleEpubReplace(); });
 
     // Move file endpoint
     server->on("/move", HTTP_POST, [this] { handleMove(); });
@@ -1204,6 +1205,74 @@ void CrossPointWebServer::handleRename() const {
     LOG_ERR("WEB", "Failed to rename file: %s -> %s", itemPath.c_str(), newPath.c_str());
     server->send(500, "text/plain", "Failed to rename file");
   }
+}
+
+void CrossPointWebServer::handleEpubReplace() const {
+  if (!server->hasArg("target") || !server->hasArg("staged")) {
+    server->send(400, "text/plain", "Missing target or staged archive");
+    return;
+  }
+  const String target = normalizeWebPath(server->arg("target"));
+  const String staged = normalizeWebPath(server->arg("staged"));
+  const String targetName = target.substring(target.lastIndexOf('/') + 1);
+  const String stagedName = staged.substring(staged.lastIndexOf('/') + 1);
+  String targetExtension = targetName;
+  String stagedExtension = stagedName;
+  targetExtension.toLowerCase();
+  stagedExtension.toLowerCase();
+  const String targetParent = target.substring(0, target.lastIndexOf('/'));
+  const String stagedParent = staged.substring(0, staged.lastIndexOf('/'));
+  if (target == staged || targetExtension.length() < 5 || !targetExtension.endsWith(".epub") ||
+      !stagedExtension.endsWith(".epub") || !stagedName.startsWith("cnmeta-") ||
+      targetParent != stagedParent || !FsHelpers::isSafePathComponent(targetName) ||
+      !FsHelpers::isSafePathComponent(stagedName) || isProtectedItemName(targetName) ||
+      protectedpaths::isSensitivePath(target.c_str()) || protectedpaths::isSensitivePath(staged.c_str())) {
+    server->send(400, "text/plain", "Invalid EPUB replacement paths");
+    return;
+  }
+  if (!Storage.exists(target.c_str()) || !Storage.exists(staged.c_str())) {
+    server->send(404, "text/plain", "Target or staged EPUB not found");
+    return;
+  }
+
+  HalFile original = Storage.open(target.c_str());
+  HalFile replacement = Storage.open(staged.c_str());
+  if (!original || original.isDirectory() || !replacement || replacement.isDirectory()) {
+    server->send(400, "text/plain", "Target and staged paths must be files");
+    return;
+  }
+  uint8_t signature[4]{};
+  const bool validZip = replacement.read(signature, sizeof(signature)) == sizeof(signature) && signature[0] == 'P' &&
+                        signature[1] == 'K' && signature[2] == 3 && signature[3] == 4;
+  original.close();
+  replacement.close();
+  if (!validZip) {
+    server->send(400, "text/plain", "Staged file is not a ZIP archive");
+    return;
+  }
+
+  String backup = targetParent;
+  if (!backup.endsWith("/")) backup += "/";
+  backup += ".cnmeta-backup-" + String(millis()) + ".tmp";
+  if (Storage.exists(backup.c_str())) {
+    server->send(409, "text/plain", "An EPUB edit is already in progress");
+    return;
+  }
+  clearBookCache(target.c_str());
+  if (!Storage.rename(target.c_str(), backup.c_str())) {
+    server->send(500, "text/plain", "Could not stage original EPUB");
+    return;
+  }
+  if (!Storage.rename(staged.c_str(), target.c_str())) {
+    const bool restored = Storage.rename(backup.c_str(), target.c_str());
+    clearBookCache(target.c_str());
+    server->send(500, "text/plain", restored ? "Could not install edited EPUB; original restored"
+                                              : "Could not install edited EPUB; original backup retained");
+    return;
+  }
+  clearBookCache(target.c_str());
+  if (!Storage.remove(backup.c_str())) LOG_ERR("WEB", "EPUB replaced; backup remains at %s", backup.c_str());
+  server->send(200, "text/plain", "EPUB metadata saved");
 }
 
 void CrossPointWebServer::handleMove() const {

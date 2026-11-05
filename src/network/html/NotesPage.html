@@ -61,6 +61,8 @@ li .drop{flex:0 0 auto;font-family:var(--mono);font-size:.8rem;letter-spacing:.1
   letter-spacing:.03em;padding:.5em 1.15em .38em;border:3px solid var(--ink);
   background:var(--ink);color:var(--paper);cursor:pointer}
 .btn[disabled]{opacity:.42;cursor:default}
+.btn.secondary{background:transparent;color:var(--ink)}
+.btn.secondary[hidden]{display:none}
 .foot{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted);margin:1.4rem 0 0}
 </style>
@@ -72,7 +74,8 @@ li .drop{flex:0 0 auto;font-family:var(--mono);font-size:.8rem;letter-spacing:.1
 <p class="eyebrow" id="eyebrow">One line per thing</p>
 <ul id="rows"></ul>
 <button class="btn" id="save" disabled>Save to the reader</button>
-<p class="foot" id="foot">Served by the reader itself. Nothing leaves your network.</p>
+<button class="btn secondary" id="copy" type="button" hidden>Copy note to messages app</button>
+<p class="foot" id="foot">Edits save to the reader over your local Wi-Fi.</p>
 </main>
 <script>
 // Wrapped, and nothing here is called `name`: a top-level `var name` assigns to
@@ -81,6 +84,7 @@ li .drop{flex:0 0 auto;font-family:var(--mono);font-size:.8rem;letter-spacing:.1
 (function () {
 var rowsEl = document.getElementById('rows');
 var saveEl = document.getElementById('save');
+var copyEl = document.getElementById('copy');
 var stateEl = document.getElementById('state');
 var nameEl = document.getElementById('name');
 var footEl = document.getElementById('foot');
@@ -92,6 +96,32 @@ var loaded = null;
 var isNote = false;
 
 function say(msg) { stateEl.textContent = msg; }
+
+function copyNote() {
+  if (!isNote) return;
+  var value = serialise();
+  if (!value.trim()) { say('There is no message to copy yet.'); return; }
+  function fallback() {
+    var helper = document.createElement('textarea');
+    helper.value = value;
+    helper.setAttribute('readonly', '');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.select();
+    var copied = false;
+    try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+    helper.remove();
+    say(copied ? 'Copied. Paste it into your messaging app.' : 'Copy is unavailable. Select the note text and copy it manually.');
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(value).then(function () {
+      say('Copied. Paste it into your messaging app.');
+    }).catch(fallback);
+  } else {
+    fallback();
+  }
+}
 
 // A line of the file, split into the two things a person can see: whether it is
 // done, and what it says. The "- [ ] " marker never reaches the screen.
@@ -200,6 +230,9 @@ function load() {
     if (!r.ok) throw new Error(r.status);
     nameEl.textContent = decodeURIComponent(r.headers.get('X-Note-Name') || 'Notes');
     isNote = r.headers.get('X-Note-Kind') === 'note';
+    copyEl.hidden = !isNote;
+    footEl.textContent = isNote ? 'Copy this note into SMS or another messaging app, or save edits back to the reader.'
+                  : 'Edits save to the reader over your local Wi-Fi.';
     eyebrowEl.textContent = isNote ? 'One paragraph per box' : 'One line per thing';
     return r.text();
   }).then(function (body) {
@@ -241,6 +274,7 @@ saveEl.addEventListener('click', function () {
     say(String(e.message || e).slice(0, 40));
   });
 });
+copyEl.addEventListener('click', copyNote);
 
 load();
 })();

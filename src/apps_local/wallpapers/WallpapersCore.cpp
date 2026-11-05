@@ -249,6 +249,8 @@ const char* modeTakeoverNote(const uint8_t previousMode) {
       return tr(STR_WALLPAPER_NOTE_375ED76A);
     case kSleepNote:
       return tr(STR_WALLPAPER_NOTE_9802A6AC);
+    case kSleepReadingGoal:
+      return tr(STR_WALLPAPER_NOTE_READING_GOAL);
     default:
       return nullptr;
   }

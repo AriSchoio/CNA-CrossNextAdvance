@@ -24,6 +24,7 @@ class QuotesActivity final : public Activity {
   void refresh(bool rebuildIndex = true, bool repaint = true);
   void route(int, int);
   void back();
+  void editNote();
   void turn(int);
   void favorite(int);
   void fail();

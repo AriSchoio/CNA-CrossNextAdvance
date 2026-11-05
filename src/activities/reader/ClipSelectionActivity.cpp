@@ -370,7 +370,7 @@ int ClipSelectionActivity::selectionActionCount() const {
       if (next == through) break;
       through = next;
     }
-    return through == end ? 2 : 1;
+    return through == end ? 3 : 1;
   }
   for (int n = first + 1; n <= last; ++n) {
     const auto& previous = words[n - 1];
@@ -380,12 +380,14 @@ int ClipSelectionActivity::selectionActionCount() const {
                                                              previous.x > current.x + current.width + 2;
     if (current.paragraphStart || separated) return 1;
   }
-  return 2;
+  return 3;
 }
 
 ClippingResult::Action ClipSelectionActivity::selectionAction(const int index) const {
   if (selectionActionCount() == 1) return ClippingResult::Action::Clip;
-  return index == 0 ? ClippingResult::Action::Translate : ClippingResult::Action::Lookup;
+  if (index == 0) return ClippingResult::Action::Translate;
+  if (index == 1) return ClippingResult::Action::Lookup;
+  return ClippingResult::Action::Wikipedia;
 }
 
 void ClipSelectionActivity::confirmSelection(const ClippingResult::Action action) {
@@ -397,9 +399,10 @@ void ClipSelectionActivity::confirmSelection(const ClippingResult::Action action
 
   const int first = std::min(rangeStart, selected);
   const int last = std::max(rangeStart, selected);
-  if ((selectionActionCount() == 1) != (action == ClippingResult::Action::Clip)) return;
+  const bool needsSentence = action == ClippingResult::Action::Lookup || action == ClippingResult::Action::Translate ||
+                             action == ClippingResult::Action::Wikipedia;
   int before = first, after = last;
-  if ((action == ClippingResult::Action::Lookup || action == ClippingResult::Action::Translate)) {
+  if (needsSentence) {
     while (before > 0 && !words[before].paragraphStart && !vocabulary::sentenceEnd(words[before - 1].text)) --before;
     while (after + 1 < static_cast<int>(wordCount) && !words[after + 1].paragraphStart &&
            !vocabulary::sentenceEnd(words[after].text))
@@ -410,8 +413,7 @@ void ClipSelectionActivity::confirmSelection(const ClippingResult::Action action
   const auto heap = HalMemory::getDefaultHeap();
   const bool lowMemory = !clippingText::exportHeapReady(
       heap.freeBytes, heap.largestBlockBytes, CLIPPING_TEXT_MAX, last - first + 1,
-      (action == ClippingResult::Action::Lookup || action == ClippingResult::Action::Translate) ? after - before + 1
-                                                                                                : 0);
+      needsSentence ? after - before + 1 : 0);
   if (lowMemory || !buildSelectedText(first, last, result.text)) {
     static constexpr StrId OPTIONS[] = {StrId::STR_BACK};
     actionPopup.show(lowMemory ? StrId::STR_MEMORY_ERROR : StrId::STR_CLIPPING_TOO_LONG, OPTIONS, 1, 0, [](int) {});
@@ -419,7 +421,7 @@ void ClipSelectionActivity::confirmSelection(const ClippingResult::Action action
     return;
   }
   result.startPageOffset = words[first].pageOffset;
-  if ((action == ClippingResult::Action::Lookup || action == ClippingResult::Action::Translate)) {
+  if (needsSentence) {
     result.sentenceFragment = (before == 0 && !words[before].paragraphStart) ||
                               (after + 1 == static_cast<int>(wordCount) && !vocabulary::sentenceEnd(words[after].text));
     if (!buildSelectedText(before, after, result.sentence)) {
@@ -693,9 +695,11 @@ Rect ClipSelectionActivity::actionRect() const {
   safe.height = bottomEdge - safe.y;
   const int font = uiScaleSpec().smallFontId;
   const int count = selectionActionCount();
-  const int labelWidth = count == 2 ? std::max(renderer.getTextWidth(font, tr(STR_WORD_TRANSLATE)),
-                                               renderer.getTextWidth(font, tr(STR_WORD_DEFINE)))
-                                    : renderer.getTextWidth(font, tr(STR_WORD_QUOTE));
+  const int labelWidth = count == 1
+                             ? renderer.getTextWidth(font, tr(STR_WORD_QUOTE))
+                             : std::max(renderer.getTextWidth(font, tr(STR_WORD_TRANSLATE)),
+                                        std::max(renderer.getTextWidth(font, tr(STR_WORD_DEFINE)),
+                                                 count == 3 ? renderer.getTextWidth(font, tr(STR_WIKI_SEARCH_HINT)) : 0));
   const int padding = metrics.menuSpacing;
   const int width = std::min(safe.width, count * (labelWidth + padding * 2) + padding * (count + 1));
   const int lines = labelWidth > (width - padding * (count + 1)) / count ? 2 : 1;
@@ -892,7 +896,7 @@ void ClipSelectionActivity::drawSelection() const {
       GUI.drawSelectionHandle(renderer, handleRect(first, true), !words[first].isRtl);
     if (words[last].pageOffset == currentPageOffset)
       GUI.drawSelectionHandle(renderer, handleRect(last, false), words[last].isRtl);
-    if (!touchDragSelecting) GUI.drawSelectionActions(renderer, actionRect(), selectionActionCount() == 2);
+    if (!touchDragSelecting) GUI.drawSelectionActions(renderer, actionRect(), selectionActionCount());
   } else {
     const WordBox& cursor = words[selected];
     renderer.drawRect(cursor.x + offsetX, cursor.y + offset, cursor.width, cursor.height, true);

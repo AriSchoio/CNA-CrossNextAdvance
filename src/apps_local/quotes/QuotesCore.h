@@ -20,12 +20,14 @@ inline uint64_t hash(const char* s) {
   return h;
 }
 inline constexpr int kMax = 512;
+inline constexpr size_t kNoteMax = 128;
 inline constexpr uint8_t kFavorite = 1, kHidden = 2;
 struct Entry {
   uint64_t key = 0, book = 0;
   uint32_t start = 0, end = 0;
   uint16_t page = 0;
   uint8_t flags = 0;
+  char note[kNoteMax + 1]{};
 };
 struct Quote {
   char title[192]{}, author[128]{}, date[80]{};

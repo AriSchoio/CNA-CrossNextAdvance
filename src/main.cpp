@@ -43,6 +43,7 @@
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "apps_local/Shelf.h"
+#include "apps_local/live/LiveEngine.h"
 #include "apps_local/power/PowerButtonPolicy.h"
 #include "apps_local/power/PowerMenuActivity.h"
 #include "apps_local/powerprobe/PowerProbe.h"
@@ -197,6 +198,7 @@ enum class BootResume : uint8_t {
 // device back up against the user's sleep gesture. Never cleared:
 // startDeepSleep() does not return, so a set latch only ends at the wakeup reset.
 static bool deepSleepInProgress = false;
+static bool timerWakePending = false;
 
 #if FREEINK_CAP_TOUCH
 static bool finishWifiSessionWithoutRestart() {
@@ -374,7 +376,10 @@ CROSSPLAY_SLEEP_NORETURN static void startDeepSleepArmed(const uint64_t timerMic
 #endif
 }
 
-[[maybe_unused]] static uint64_t resleepTimerMicros() { return kTimerWakeMicros; }
+[[maybe_unused]] static uint64_t resleepTimerMicros() {
+  const uint32_t liveSeconds = live::engine::resleepSeconds();
+  return liveSeconds ? static_cast<uint64_t>(liveSeconds) * 1000000ULL : kTimerWakeMicros;
+}
 
 // Plugin-event delivery on the way into deep sleep. sleep.enter is delivered
 // now — over the live connection, or by bringing WiFi up when a plugin
@@ -477,6 +482,11 @@ void enterDeepSleep(bool fromTimeout = false, bool unattended = false) {
   deepSleepInProgress = true;
   activityManager.goToSleep(fromTimeout);
 
+  bool repaintLiveScreen = false;
+  const uint32_t liveTimerSeconds = live::engine::onSleep(repaintLiveScreen, timerWakePending);
+  timerWakePending = false;
+  if (repaintLiveScreen) activityManager.goToSleep(fromTimeout);
+
   if (isQuickResumeSleep) {
     saveSleepFrameBuffer();
   } else if (!unattended && Storage.exists(SLEEP_FRAME_FILE)) {
@@ -499,7 +509,9 @@ void enterDeepSleep(bool fromTimeout = false, bool unattended = false) {
   Storage.prepareForDeepSleep();
   LOG_DBG("MAIN", "Entering deep sleep");
 
-  startDeepSleepArmed(kTimerWakeMicros);
+  const uint64_t timerMicros = liveTimerSeconds ? static_cast<uint64_t>(liveTimerSeconds) * 1000000ULL
+                                                : kTimerWakeMicros;
+  startDeepSleepArmed(timerMicros);
 }
 
 void setupDisplayAndFonts(bool seamless = false) {
@@ -754,10 +766,8 @@ void setup() {
 #if CROSSPLAY_CAN_ARM_TIMER
     case HalGPIO::WakeupReason::Timer: {
       unattendedWakeMagic = UNATTENDED_WAKE_MAGIC;
-      LOG_DBG("MAIN", "Timer wake: returning to sleep");
-      powerprobe::beforeSleep();
-      Storage.prepareForDeepSleep();
-      startDeepSleepArmed(kTimerWakeMicros);
+      timerWakePending = true;
+      LOG_DBG("MAIN", "Timer wake: processing scheduled sleep work");
       break;
     }
 #endif

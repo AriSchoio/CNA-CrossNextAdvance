@@ -179,6 +179,7 @@ class CrossPointWebServer {
   void handleUploadPost(UploadState& state) const;
   void handleCreateFolder() const;
   void handleRename() const;
+  void handleEpubReplace() const;
   void handleMove() const;
   void handleDelete() const;
 

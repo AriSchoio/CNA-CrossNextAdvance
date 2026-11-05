@@ -137,22 +137,31 @@ int detail(toybox::Screen& s, const DetailModel& m, pagedtext::Work& work) {
   std::snprintf(label, sizeof(label), tr(STR_RT_PAGE), m.page);
   caps(s, makeRect(meta.right() - 72, meta.y + 4, 64, meta.height - 8), label, 3, 2, fui::TextAlign::Center);
   auto content = makeRect(b.x + 10, meta.bottom() + 24, mainW - 20,
-                          (wide ? b.bottom() - 88 : b.bottom() - 286) - meta.bottom() - 24);
+                          (wide ? b.bottom() - 88 : b.bottom() - 360) - meta.bottom() - 24);
   const int pages = pagedtext::draw(s.target(), content, m.body, kReadingFont, m.bodyPage, work);
   const int bodyPage = std::clamp(m.bodyPage, 0, pages - 1);
   if (bodyPage != m.bodyPage) pagedtext::draw(s.target(), content, m.body, kReadingFont, bodyPage, work);
   const int ax = wide ? b.x + mainW + 16 : b.x, aw = wide ? b.width - mainW - 16 : b.width;
-  const int ay = wide ? meta.bottom() + 22 : b.bottom() - 246;
+  const int ay = wide ? meta.bottom() + 22 : b.bottom() - 332;
   if (!wide)
     s.target().line({int16_t(b.x + 8), int16_t(ay - 10)}, {int16_t(b.right() - 8), int16_t(ay - 10)}, 1,
                     dashboard::ink);
   if (m.saved && *m.saved) {
     std::snprintf(label, sizeof(label), tr(STR_RT_SAVED), m.saved);
-    text(s, makeRect(ax + 8, ay, aw - 16, 44), label, 4, 2);
+        text(s, makeRect(ax + 8, ay, aw - 16, 28), label, 4, 1);
   }
-  const int by = ay + 54;
-  button(s, makeRect(ax, by, aw, 64), m.favorite ? tr(STR_RT_UNFAVORITE) : tr(STR_RT_FAVORITE), Favorite, true);
-  button(s, makeRect(ax, by + 76, aw, 64), tr(STR_RT_DELETE_QUOTE), Remove);
+      const int noteLabelY = ay + 30;
+      caps(s, makeRect(ax + 8, noteLabelY, aw - 16, 22), tr(STR_RT_NOTE_LABEL), 3, 1);
+      const int noteHeight = wide ? 60 : 56;
+      const auto noteRect = makeRect(ax + 8, noteLabelY + 22, aw - 16, noteHeight);
+      text(s, noteRect, m.note && *m.note ? m.note : tr(STR_RT_NOTE_EMPTY), 4, 3);
+      const int by = noteRect.bottom() + 8;
+      const int buttonHeight = 48, buttonGap = 4;
+      button(s, makeRect(ax, by, aw, buttonHeight), m.favorite ? tr(STR_RT_UNFAVORITE) : tr(STR_RT_FAVORITE), Favorite,
+        true);
+      button(s, makeRect(ax, by + buttonHeight + buttonGap, aw, buttonHeight),
+        m.note && *m.note ? tr(STR_RT_EDIT_NOTE) : tr(STR_RT_ADD_NOTE), Note);
+      button(s, makeRect(ax, by + 2 * (buttonHeight + buttonGap), aw, buttonHeight), tr(STR_RT_DELETE_QUOTE), Remove);
   const auto controls = pageui::draw(s.target(), makeRect(b.x, b.bottom() - 44, mainW, 44), m.index + 1, m.total);
   if (bodyPage > 0 || m.index > 0) dashboard::hit(s, controls.before, Page, -1);
   if (bodyPage + 1 < pages || m.index + 1 < m.total) dashboard::hit(s, controls.after, Page, 1);

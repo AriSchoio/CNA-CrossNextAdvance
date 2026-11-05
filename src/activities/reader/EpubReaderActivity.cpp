@@ -1,3 +1,4 @@
+#include "apps_local/wikipedia/WikipediaActivity.h"
 #include "EpubReaderActivity.h"
 
 #include <Epub/Page.h>
@@ -467,6 +468,16 @@ void EpubReaderActivity::startClipSelection(const int initialX, const int initia
       showBookmarkMessage = true;
       bookmarkMessageTime = millis();
       requestUpdate();
+      return;
+    }
+    if (clipping.action == ClippingResult::Action::Wikipedia) {
+      auto wikipedia = makeUniqueNoThrow<WikipediaActivity>(renderer, mappedInput, clipping.text);
+      if (!wikipedia) {
+        LOG_ERR("WIKI", "OOM: selected-text lookup");
+        requestUpdate();
+        return;
+      }
+      startActivityForResult(std::move(wikipedia), [this](const ActivityResult&) { requestUpdate(); });
       return;
     }
     if (clipping.action == ClippingResult::Action::Lookup || clipping.action == ClippingResult::Action::Translate) {

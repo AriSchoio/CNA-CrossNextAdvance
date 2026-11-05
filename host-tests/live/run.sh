@@ -66,8 +66,8 @@ src = re.sub(r"//[^\n]*", "", open(sys.argv[1]).read())
 calls = re.findall(r"startDeepSleepArmed\(([^;{}]*)\);", src)
 bad = [c for c in calls if c.strip() == "kTimerWakeMicros"]
 fails = 0
-if len(calls) != 4:
-    print("FAIL live  found %d startDeepSleepArmed calls in main.cpp, expected 4 (enterDeepSleep, the timer wake, and the two re-sleeps); read the new one and add it here" % len(calls))
+if len(calls) != 3:
+    print("FAIL live  found %d startDeepSleepArmed calls in main.cpp, expected 3 (enterDeepSleep and the two re-sleeps); timer wakes must flow through enterDeepSleep" % len(calls))
     fails += 1
 for c in bad:
     print("FAIL live  main.cpp sleeps with startDeepSleepArmed(%s): 0 on a release build, so Live's alarm is dropped (card #620)" % c.strip())

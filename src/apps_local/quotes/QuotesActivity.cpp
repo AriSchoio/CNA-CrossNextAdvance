@@ -12,6 +12,7 @@
 #include "../ui/ReadingToolsUi.h"
 #include "../ui/ToyboxFonts.h"
 #include "QuotesStore.h"
+#include "../../activities/util/KeyboardEntryActivity.h"
 #include "components/SideButtonNavigation.h"
 namespace fui = freeink::ui;
 std::unique_ptr<Activity> QuotesActivity::create(GfxRenderer& r, MappedInputManager& i) {
@@ -156,6 +157,39 @@ void QuotesActivity::favorite(int n) {
   interactionsReady = false;
   requestUpdate();
 }
+void QuotesActivity::editNote() {
+  if (view != View::Detail || !visibleCount || !stateWritable) return;
+  const int slot = visible[selection];
+  auto keyboard = makeUniqueNoThrow<KeyboardEntryActivity>(renderer, mappedInput, tr(STR_RT_EDIT_NOTE),
+                                                            entries[slot].note, quotes::kNoteMax);
+  if (!keyboard) {
+    LOG_ERR("QUOTES", "OOM: quote note keyboard");
+    fail();
+    return;
+  }
+  interactionsReady = false;
+  startActivityForResult(std::move(keyboard), [this, slot](const ActivityResult& result) {
+    RenderLock lock(*this);
+    if (result.isCancelled) {
+      view = View::Detail;
+      requestUpdate();
+      return;
+    }
+    auto& entry = entries[slot];
+    char previous[quotes::kNoteMax + 1];
+    std::memcpy(previous, entry.note, sizeof(previous));
+    const auto& text = std::get<KeyboardResult>(result.data).text;
+    quotes::copyText(entry.note, sizeof(entry.note), text.c_str());
+    if (!quotes::saveFlags(entries, count)) {
+      std::memcpy(entry.note, previous, sizeof(previous));
+      fail();
+      return;
+    }
+    view = View::Detail;
+    refresh(false);
+    requestUpdate();
+  });
+}
 void QuotesActivity::turn(int step) {
   if (view == View::Detail) {
     if (bodyPage + step >= 0 && bodyPage + step < bodyPages)
@@ -238,6 +272,9 @@ void QuotesActivity::route(int action, int value) {
     case quotesui::Favorite:
       favorite(view == View::Detail ? selection : value);
       break;
+    case quotesui::Note:
+      editNote();
+      return;
     case quotesui::Page:
       turn(value);
       break;
@@ -381,6 +418,7 @@ void QuotesActivity::render(RenderLock&&) {
     m.author = quote.author;
     m.body = quote.body;
     m.saved = quote.date;
+    m.note = entries[visible[selection]].note;
     m.page = quote.page;
     m.index = selection;
     m.total = visibleCount;

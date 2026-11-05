@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../../activities/Activity.h"
@@ -25,8 +26,8 @@
 
 class WikipediaActivity final : public Activity {
  public:
-  WikipediaActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : Activity("Wikipedia", renderer, mappedInput) {}
+    WikipediaActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string initialQuery = {})
+      : Activity("Wikipedia", renderer, mappedInput), query_(std::move(initialQuery)) {}
   ~WikipediaActivity() override;
 
   static std::unique_ptr<Activity> create(GfxRenderer& renderer, MappedInputManager& mappedInput);

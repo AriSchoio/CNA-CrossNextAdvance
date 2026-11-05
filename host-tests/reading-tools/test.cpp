@@ -283,6 +283,8 @@ int main(int argc, char** argv) {
         notesui::MenuModel m;
         m.title = "Pendientes";
         notesui::buildMenu(menu.screen, m);
+        CHECK(menu.has(notesui::ActionUsePhone));
+        menu.checkHits();
         notesui::ConfirmModel q;
         q.reference = true;
         q.prose = tr(STR_UI_DELETE_THIS_NOTE_AND_EVERYTHING_WRITTEN_D1E983);
@@ -335,11 +337,16 @@ int main(int argc, char** argv) {
         m.title = "Ciudad de papel";
         m.author = "Lucía Prado";
         m.body = "Las historias encuentran espacio incluso en los márgenes.";
+        m.note = "Record this sentence for later.";
         m.page = 5;
         m.total = 24;
         m.favorite = true;
         pagedtext::Work work;
         quotesui::detail(c.screen, m, work);
+        bool noteAction = false;
+        for (size_t n = 0; n < c.interactions.count(); ++n)
+          noteAction |= c.interactions.data()[n].action == quotesui::Note;
+        CHECK(noteAction);
         shot(c, "quote-detail");
       }
       {

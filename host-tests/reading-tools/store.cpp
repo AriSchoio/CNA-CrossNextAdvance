@@ -11,11 +11,15 @@ int main() {
   assert(loadFlags(e, kMax) == Load::Missing);
   e[0].flags = kFavorite;
   e[1].flags = kHidden;
+  std::strcpy(e[0].note, "Remember this passage");
+  std::strcpy(e[1].note, "Cafe\xc3\xa9");
   assert(saveFlags(e, kMax));
   const auto original = testStorage.files["/.crosspoint/quotes.bin"];
   e[0].flags = e[1].flags = 0;
   assert(loadFlags(e, kMax) == Load::Ok);
   assert(e[0].flags == kFavorite && e[1].flags == kHidden);
+  assert(!std::strcmp(e[0].note, "Remember this passage"));
+  assert(!std::strcmp(e[1].note, "Cafe\xc3\xa9"));
   int checks = 5;
   for (size_t byte = 0; byte < original.size(); ++byte) {
     testStorage.files["/.crosspoint/quotes.bin"] = original;
@@ -39,7 +43,7 @@ int main() {
   assert(e[2].flags == 0);
   checks += 3;
   testStorage.files["/.crosspoint/quotes.bin"] = original;
-  testStorage.files["/.crosspoint/quotes.bin"][4] = 2;
+  testStorage.files["/.crosspoint/quotes.bin"][4] = 3;
   const auto future = testStorage.files["/.crosspoint/quotes.bin"];
   assert(loadFlags(e, kMax) == Load::Error);
   assert(!saveFlags(e, kMax));
