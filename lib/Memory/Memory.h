@@ -1,10 +1,15 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+#include <esp_heap_caps.h>
+#endif
 
 // Nothrow versions of std::make_unique. Return nullptr on allocation failure
 // instead of calling abort() (the default when exceptions are disabled on ESP32).
@@ -52,3 +57,24 @@ struct [[nodiscard]] ScopedCleanup final {
 
 template <typename F>
 ScopedCleanup(F) -> ScopedCleanup<F>;
+
+struct HeapByteBufferDeleter {
+  void operator()(uint8_t* ptr) const {
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+    heap_caps_free(ptr);
+#else
+    std::free(ptr);
+#endif
+  }
+};
+
+using HeapByteBuffer = std::unique_ptr<uint8_t[], HeapByteBufferDeleter>;
+
+inline HeapByteBuffer makePsramByteBufferNoThrow(size_t count) {
+  if (count == 0) return {};
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+  return HeapByteBuffer(static_cast<uint8_t*>(heap_caps_malloc(count, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+#else
+  return HeapByteBuffer(static_cast<uint8_t*>(std::malloc(count)));
+#endif
+}

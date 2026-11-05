@@ -1,0 +1,8 @@
+{
+  "id": "dungeon-crawler-carl",
+  "name": "Dungeon Crawler Carl",
+  "version": "1.0.0",
+  "description": "A text-based survival dungeon featuring syndicates, bosses, traps, quests, companions, crafting, and fame.",
+  "entry": "app.wasm",
+  "permissions": ["display", "input"]
+}

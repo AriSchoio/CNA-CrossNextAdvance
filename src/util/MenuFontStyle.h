@@ -51,7 +51,8 @@ inline constexpr const char* kItemKeys[] = {
     "CHESS",         "CHECKERS",  "GO",       "MINESWEEPER", "PICROSS",   "WORDLE",       "2048",       "THE INTERCEPT",
     "BATTLESHIP",    "SOLITAIRE", "HEARTS",   "MURDLE",      "CARNIVORO", "CONNECT FOUR", "SUDOKU",     "OTHELLO",
     "READING QUEST", "PET",       "HABITS",   "TO DO LIST",  "NOTES",     "POMODORO",     "WALLPAPERS", "QUOTES",
-    "FLASHCARDS",    "WORDS",     "CALENDAR", "CLOCK",       "COUNTER",   "GAME BOY", "WEB BROWSER"};
+    "FLASHCARDS",    "WORDS",     "CALENDAR", "CLOCK",       "COUNTER",   "GAME BOY", "WEB BROWSER",
+    "INSTALLED APPS"};
 inline constexpr int kItemCount = sizeof(kItemKeys) / sizeof(kItemKeys[0]);
 inline constexpr uint8_t kNoItem = kItemCount;
 constexpr bool sameKey(const char* a, const char* b) {

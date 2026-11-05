@@ -26,7 +26,6 @@ class GoodyModuleActivity final : public Activity {
   void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
-  bool powerOffPanelWhenIdle() const override { return true; }
 
   // Host calls (GoodyModuleActivity.cpp) reach the page through these.
   struct Page {

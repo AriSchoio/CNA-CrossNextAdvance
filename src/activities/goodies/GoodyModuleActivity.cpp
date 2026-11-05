@@ -12,10 +12,9 @@
 #include <algorithm>
 
 #include "MappedInputManager.h"
-#include "components/TouchHeaderBackButton.h"
+#include "apps_local/ui/PixelMenuTheme.h"
 #include "components/UIScale.h"
 #include "components/UITheme.h"
-#include "platform/PinMon.h"
 
 namespace {
 
@@ -69,28 +68,6 @@ void gdRect(wasm_exec_env_t env, int32_t x, int32_t y, int32_t w, int32_t h, int
 
 void gdLog(wasm_exec_env_t, const char* text) { LOG_INF("GDY", "%s", text); }
 
-int32_t gdPinCount(wasm_exec_env_t) { return PinMon::PIN_COUNT; }
-int32_t gdPinStat(wasm_exec_env_t, int32_t pin, int32_t field) {
-  if (pin < 0 || pin >= static_cast<int32_t>(PinMon::PIN_COUNT)) return 0;
-  const PinMon::PinStat s = PinMon::stat(pin);
-  switch (field) {
-    case 0:
-      return s.gpio;
-    case 1:
-      return s.level;
-    case 2:
-      return static_cast<int32_t>(s.changes);
-    case 3:
-      return static_cast<int32_t>(s.wakes);
-    case 4:
-      return s.chatter;
-    default:
-      return 0;
-  }
-}
-int32_t gdPinmonEnabled(wasm_exec_env_t) { return PinMon::enabled(); }
-void gdPinmonSet(wasm_exec_env_t, int32_t on) { PinMon::setEnabled(on != 0); }
-
 // Writable: WAMR sorts it in place on registration.
 NativeSymbol HOST_API[] = {
     {"gd_width", reinterpret_cast<void*>(gdWidth), "()i", nullptr},
@@ -99,10 +76,6 @@ NativeSymbol HOST_API[] = {
     {"gd_text", reinterpret_cast<void*>(gdText), "(ii$i)", nullptr},
     {"gd_rect", reinterpret_cast<void*>(gdRect), "(iiiii)", nullptr},
     {"gd_log", reinterpret_cast<void*>(gdLog), "($)", nullptr},
-    {"gd_pin_count", reinterpret_cast<void*>(gdPinCount), "()i", nullptr},
-    {"gd_pin_stat", reinterpret_cast<void*>(gdPinStat), "(ii)i", nullptr},
-    {"gd_pinmon_enabled", reinterpret_cast<void*>(gdPinmonEnabled), "()i", nullptr},
-    {"gd_pinmon_set", reinterpret_cast<void*>(gdPinmonSet), "(i)", nullptr},
 };
 
 size_t internalFree() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); }
@@ -211,8 +184,7 @@ bool GoodyModuleActivity::call(void* func, const int argc, uint32_t* argv) {
 }
 
 void GoodyModuleActivity::loop() {
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back) ||
-      TouchHeaderBackButton::wasTapped(mappedInput, renderer)) {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     finish();
     return;
   }
@@ -243,12 +215,11 @@ void GoodyModuleActivity::loop() {
 void GoodyModuleActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   renderer.clearScreen();
-  const Rect header = TouchHeaderBackButton::headerRect(renderer, mappedInput);
-  TouchHeaderBackButton::draw(renderer, header, title.c_str(), false);
+  pixelui::drawHeader(renderer, title.c_str(), true);
   page.font = uiScaleSpec().bodyFontId;
   page.lineHeight = renderer.getLineHeight(page.font);
   page.x = metrics.listInset + metrics.listSidePadding;
-  page.y = header.y + header.height + metrics.verticalSpacing;
+  page.y = metrics.headerHeight + metrics.verticalSpacing;
   page.width = renderer.getScreenWidth() - 2 * page.x;
   page.height = renderer.getScreenHeight() - metrics.buttonHintsHeight - page.y;
   if (renderFunc) {
@@ -266,7 +237,7 @@ void GoodyModuleActivity::render(RenderLock&&) {
       page.y += page.lineHeight + 6;
     }
   }
-  const auto labels = mappedInput.mapLabels(mappedInput.withBackArrow(tr(STR_BACK)), "", "", "");
+  const auto labels = mappedInput.mapLabels(tr(STR_QUEST_BACK), "", "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }
