@@ -38,6 +38,13 @@ struct State {
   uint8_t questGoal = 3;
   uint8_t achievements = 0;
   bool inDungeon = false;
+  uint16_t enemyHealth = 0;
+  uint16_t enemyMaxHealth = 0;
+  uint16_t enemyPower = 0;
+  uint16_t guard = 0;
+  uint8_t battleTurn = 0;
+  uint8_t enemyIntent = 0;
+  uint8_t combo = 0;
 };
 
 inline uint32_t nextRandom(uint32_t& seed) {
@@ -134,6 +141,117 @@ inline const char* enemyName(const State& state) {
   static const char* enemies[] = {"Bonebutcher Beetle", "Dungeon Oracle", "Ash Hound", "Prism Goblin",
                                   "Vault Warden", "Crawler Mimic", "Neon Basilisk", "Sponsor Agent"};
   return enemies[(state.floor * 3u + state.room) % 8u];
+}
+
+inline void beginEncounter(State& state) {
+  if (state.enemyMaxHealth != 0) return;
+  state.enemyMaxHealth = static_cast<uint16_t>(18 + state.floor * 7 + randomRange(state.seed, 18u));
+  state.enemyHealth = state.enemyMaxHealth;
+  state.enemyPower = static_cast<uint16_t>(4 + state.floor * 2 + randomRange(state.seed, 8u));
+  state.guard = 0;
+  state.battleTurn = 1;
+  state.combo = 0;
+  state.enemyIntent = static_cast<uint8_t>(randomRange(state.seed, 3u));
+}
+
+inline bool usePotion(State& state) {
+  for (uint16_t i = 0; i < state.inventoryCount; ++i) {
+    if ((state.inventory[i] % 12u) == 3u || (state.inventory[i] % 12u) == 6u) {
+      state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 28u));
+      for (uint16_t n = i + 1; n < state.inventoryCount; ++n) state.inventory[n - 1] = state.inventory[n];
+      --state.inventoryCount;
+      return true;
+    }
+  }
+  state.health = static_cast<uint16_t>(std::min<uint32_t>(state.maxHealth, state.health + 12u));
+  return true;
+}
+
+enum class BattleAction : uint8_t { Attack = 0, Guard = 1, Arcane = 2, Item = 3, Escape = 4 };
+
+inline bool battleTurn(State& state, BattleAction action) {
+  if (state.enemyMaxHealth == 0) beginEncounter(state);
+  if (action == BattleAction::Escape) {
+    if (randomRange(state.seed, 100u) < 35u + state.skills[6] * 2u) {
+      state.enemyHealth = 0;
+      state.enemyMaxHealth = 0;
+      state.guard = 0;
+      state.combo = 0;
+      return true;
+    }
+  }
+
+  uint16_t damage = 0;
+  if (action == BattleAction::Attack) {
+    damage = static_cast<uint16_t>(10 + state.level * 2 + state.skills[1] * 3 + randomRange(state.seed, 8u));
+    damage += state.combo * 2u;
+    state.combo = static_cast<uint8_t>(std::min<uint32_t>(5u, state.combo + 1u));
+  } else if (action == BattleAction::Arcane) {
+    if (state.mana >= 14u) {
+      state.mana -= 14u;
+      damage = static_cast<uint16_t>(16 + state.level * 3 + state.skills[2] * 4 + randomRange(state.seed, 10u));
+      state.combo = 0;
+    } else {
+      damage = 3u;
+      state.combo = 0;
+    }
+  } else if (action == BattleAction::Item) {
+    usePotion(state);
+    state.combo = 0;
+  } else if (action == BattleAction::Guard) {
+    state.guard = static_cast<uint16_t>(12 + state.level * 2 + state.skills[0] * 2);
+    state.mana = static_cast<uint16_t>(std::min<uint32_t>(state.maxMana, state.mana + 8u));
+    state.combo = 0;
+  }
+
+  if (damage >= state.enemyHealth) state.enemyHealth = 0;
+  else state.enemyHealth -= damage;
+  if (state.enemyHealth == 0) {
+    const uint32_t reward = 10u + state.floor * 5u + randomRange(state.seed, 12u);
+    state.coins += reward;
+    state.xp += 24u + state.floor * 7u;
+    state.kills++;
+    if (state.questProgress < state.questGoal) ++state.questProgress;
+    state.viewers = static_cast<uint16_t>(std::min<uint32_t>(9999u, state.viewers + 4u + randomRange(state.seed, 8u)));
+    state.rating = static_cast<uint16_t>(std::min<uint32_t>(100u, state.rating + randomRange(state.seed, 5u)));
+    if (state.inventoryCount < kInventorySize)
+      state.inventory[state.inventoryCount++] = static_cast<uint16_t>(randomRange(state.seed, kCatalogSize));
+    levelUp(state);
+    state.enemyMaxHealth = 0;
+    state.enemyPower = 0;
+    state.guard = 0;
+    state.combo = 0;
+    advanceRoom(state);
+    return true;
+  }
+
+  uint16_t incoming = state.enemyPower + randomRange(state.seed, 7u);
+  if (state.enemyIntent == 0) incoming += 8u;
+  if (state.enemyIntent == 2) incoming = incoming / 2u;
+  if (state.guard >= incoming) {
+    state.guard -= incoming;
+    incoming = 0;
+  } else {
+    incoming -= state.guard;
+    state.guard = 0;
+  }
+  if (incoming >= state.health) state.health = 0;
+  else state.health -= incoming;
+  state.guard = 0;
+  ++state.battleTurn;
+  state.enemyIntent = static_cast<uint8_t>(randomRange(state.seed, 3u));
+
+  if (state.health == 0) {
+    ++state.deaths;
+    state.health = state.maxHealth;
+    state.mana = state.maxMana;
+    state.floor = 1;
+    state.room = 1;
+    state.coins /= 2u;
+    state.enemyHealth = 0;
+    state.enemyMaxHealth = 0;
+  }
+  return false;
 }
 
 inline bool fight(State& state) {

@@ -24,6 +24,11 @@ enum Action : freeink::ui::ActionId {
   ActionFight = 102,
   ActionList = 103,
   ActionBack = 104,
+  ActionBattleAttack = 105,
+  ActionBattleGuard = 106,
+  ActionBattleArcane = 107,
+  ActionBattleItem = 108,
+  ActionBattleEscape = 109,
 };
 }
 
@@ -57,6 +62,7 @@ void DungeonCrawlActivity::loop() {
       case View::Inventory: return static_cast<int>(state.inventoryCount);
       case View::Skills: return static_cast<int>(dungeoncrawl::kSkillCount);
       case View::Shop: return 6;
+      case View::Dungeon: return 4;
       default: return 1;
     }
   };
@@ -70,7 +76,7 @@ void DungeonCrawlActivity::loop() {
     if (event.action == ActionMenu) {
       selected = std::clamp<int>(event.value, 0, menuRows - 1);
       switch (selected) {
-        case 0: view = View::Dungeon; break;
+        case 0: view = View::Dungeon; dungeoncrawl::beginEncounter(state); break;
         case 1: view = View::Inventory; break;
         case 2: view = View::Skills; break;
         case 3: view = View::Shop; break;
@@ -88,10 +94,21 @@ void DungeonCrawlActivity::loop() {
       return;
     }
     if (event.action == ActionFight) {
-      const bool won = dungeoncrawl::fight(state);
+      dungeoncrawl::beginEncounter(state);
+      const bool won = dungeoncrawl::battleTurn(state, dungeoncrawl::BattleAction::Attack);
       std::snprintf(message, sizeof(message), won ? "Victory! Loot acquired and the broadcast gained viewers."
                                                    : "Defeat. The crawl struck you hard.");
-      dungeoncrawl::advanceRoom(state);
+      dirty = true;
+      save();
+      requestUpdate();
+      return;
+    }
+    if (event.action >= ActionBattleAttack && event.action <= ActionBattleEscape) {
+      dungeoncrawl::beginEncounter(state);
+      const auto action = static_cast<dungeoncrawl::BattleAction>(event.action - ActionBattleAttack);
+      const bool won = dungeoncrawl::battleTurn(state, action);
+      std::snprintf(message, sizeof(message), won ? "Encounter cleared. Choose the next route carefully."
+                                                  : "Turn resolved. Read the enemy intent and adapt.");
       dirty = true;
       save();
       requestUpdate();
@@ -162,7 +179,7 @@ void DungeonCrawlActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (view == View::Menu) {
       switch (selected) {
-        case 0: view = View::Dungeon; break;
+        case 0: view = View::Dungeon; dungeoncrawl::beginEncounter(state); break;
         case 1: view = View::Inventory; break;
         case 2: view = View::Skills; break;
         case 3: view = View::Shop; break;
@@ -174,10 +191,11 @@ void DungeonCrawlActivity::loop() {
       return;
     }
     if (view == View::Dungeon) {
-      const bool won = dungeoncrawl::fight(state);
-      std::snprintf(message, sizeof(message), won ? "Victory! Loot acquired and the broadcast gained viewers."
-                                                   : "Defeat. The dungeon damaged you, but you survived.");
-      dungeoncrawl::advanceRoom(state);
+      dungeoncrawl::beginEncounter(state);
+      const bool won = dungeoncrawl::battleTurn(state, static_cast<dungeoncrawl::BattleAction>(
+                                                         std::min(selected, 3)));
+      std::snprintf(message, sizeof(message), won ? "Encounter cleared. Choose the next route carefully."
+                                                  : "Turn resolved. Read the enemy intent and adapt.");
       dirty = true;
       save();
       requestUpdate();
@@ -253,6 +271,7 @@ void DungeonCrawlActivity::render(RenderLock&&) {
       gamepanel::row(screen, fui::makeRect(body.x, body.y + i * (h + gap), body.width, h), rows[i], ActionMenu, i,
                      marks[i], selected == i);
   } else if (view == View::Dungeon) {
+    dungeoncrawl::beginEncounter(state);
     dashboard::frame(screen, body);
     const auto hero = fui::makeRect(body.x + 10, body.y + 10, body.width - 20, body.height * 48 / 100);
     dashboard::frame(screen, hero);
@@ -263,8 +282,13 @@ void DungeonCrawlActivity::render(RenderLock&&) {
                     dungeoncrawl::roomName(state), pixelui::kTitle, fui::TextAlign::Left);
     dashboard::text(screen, fui::makeRect(hero.x + 12, hero.y + 94, hero.width - 24, 50),
                     dungeoncrawl::enemyName(state), pixelui::kBody, fui::TextAlign::Left);
-    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.bottom() - 38, hero.width - 24, 28), message,
+    std::snprintf(line, sizeof(line), "ENEMY  %u / %u HP   TURN %u", state.enemyHealth, state.enemyMaxHealth,
+                  state.battleTurn);
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.y + 132, hero.width - 24, 28), line,
                     pixelui::kSmall, fui::TextAlign::Left);
+    static const char* intents[] = {"INTENT: HEAVY ATTACK", "INTENT: PRECISE ATTACK", "INTENT: RECOVER / WEAKEN"};
+    dashboard::text(screen, fui::makeRect(hero.x + 12, hero.bottom() - 38, hero.width - 24, 28),
+                    intents[state.enemyIntent % 3], pixelui::kSmall, fui::TextAlign::Left);
 
     const int cardY = hero.bottom() + 10;
     const int cardW = (body.width - 30) / 3;
@@ -277,8 +301,17 @@ void DungeonCrawlActivity::render(RenderLock&&) {
       std::snprintf(line, sizeof(line), "%lu", static_cast<unsigned long>(values[i]));
       dashboard::text(screen, fui::makeRect(card.x, card.y + 34, card.width, 28), line, pixelui::kTitle);
     }
-    dashboard::button(screen, fui::makeRect(body.x + 10, body.bottom() - 56, body.width - 20, 46),
-                      "FIGHT ENCOUNTER", ActionFight, 0, true, nullptr, pixelui::kBody);
+    const int actionY = body.bottom() - 56;
+    const int actionGap = 6;
+    const int actionW = (body.width - 20 - actionGap * 3) / 4;
+    dashboard::button(screen, fui::makeRect(body.x + 10, actionY, actionW, 46),
+                      "ATTACK", ActionBattleAttack, 0, selected == 0, nullptr, pixelui::kSmall);
+    dashboard::button(screen, fui::makeRect(body.x + 10 + actionW + actionGap, actionY, actionW, 46),
+                      "GUARD", ActionBattleGuard, 0, selected == 1, nullptr, pixelui::kSmall);
+    dashboard::button(screen, fui::makeRect(body.x + 10 + 2 * (actionW + actionGap), actionY, actionW, 46),
+                      "ARCANE", ActionBattleArcane, 0, selected == 2, nullptr, pixelui::kSmall);
+    dashboard::button(screen, fui::makeRect(body.x + 10 + 3 * (actionW + actionGap), actionY, actionW, 46),
+                      "ITEM", ActionBattleItem, 0, selected == 3, nullptr, pixelui::kSmall);
   } else if (view == View::Inventory) {
     std::snprintf(line, sizeof(line), "PACK  %u / %u", state.inventoryCount, dungeoncrawl::kInventorySize);
     dashboard::text(screen, fui::makeRect(body.x, body.y, body.width, 32), line, pixelui::kBody,
