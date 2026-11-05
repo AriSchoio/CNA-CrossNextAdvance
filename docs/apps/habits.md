@@ -4,7 +4,7 @@ Open **Apps > Habits** to track daily habits. Tap **+ NEW** and choose a
 suggestion, or **CUSTOM** to enter a name using the on-screen keyboard.
 You can keep up to twelve habits, with names of up to 32 ASCII characters.
 
-The daily screen has a date selector, a right-aligned completion count, and four compact habit cards per page. Portrait uses one column; landscape uses two columns. Each card shows its name, illustration and streak, without a repeated pending label. All five suggestions and the custom action fit on the new-habit
+The daily screen has a date selector, a completion count with a proportional progress rail, and habit cards with a clear checked accent. Portrait uses one column; landscape uses two columns. Each card shows its name, illustration and streak, without a repeated pending label. The progress screen uses larger preset artwork to identify the habit beside its statistics. All five suggestions and the custom action fit on the new-habit
 screen. Tap a habit's checkbox to mark the displayed day complete. Tap it again to undo. Tap the
 name or arrow to open its progress screen. The list stays in creation order,
 so checking in never moves the next habit away from your finger. Use the

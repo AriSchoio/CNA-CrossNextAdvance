@@ -22,6 +22,7 @@ not resolve on your network, use the IP address shown on the device screen.
 | `GET` | `/settings` | Web settings page |
 | `GET` | `/fonts` | SD-card font manager page |
 | `GET` | `/js/jszip.min.js` | JavaScript asset used by the file manager |
+| `POST` | `/api/epub/replace` | Commit a staged EPUB metadata edit from the Files page |
 
 ## Device Status
 
@@ -164,6 +165,16 @@ Form parameters:
 
 Only files can be renamed through this endpoint. The old EPUB cache path is
 cleared before the rename.
+
+### `POST /api/epub/replace`
+
+Commits an EPUB edited in the Files page. The client first uploads a staged
+`cnmeta-*.epub` beside the original, then sends form fields `target` and
+`staged`. The handler checks that both are same-directory EPUB files and that
+the staged file begins with a ZIP signature, renames the original to a hidden
+temporary backup, installs the staged file, and restores the original if the
+install rename fails. Book caches are invalidated; clipping/read-progress
+sidecars remain at the original book path.
 
 ### `POST /move`
 

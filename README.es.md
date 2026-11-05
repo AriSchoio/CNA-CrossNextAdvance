@@ -58,7 +58,16 @@ pasan a Noto Sans.
 - Estadísticas, lecturas recientes y terminadas, calendario y aventura lectora.
 - Flashcards desde archivos/Anki, repaso local con FSRS y Palabras desde diccionarios.
 - Notas, tareas, hábitos, citas, fondos, reloj, calendario y Pomodoro.
+- Navegador web de solo lectura y búsqueda de Wikipedia sin conexión desde el
+  texto seleccionado en el lector.
+- Anotaciones en citas, edición de metadatos EPUB desde Archivos y envío de notas
+  al móvil mediante QR en la red Wi-Fi local.
 - Juegos y campañas heredados de CrossPlay, con navegación adaptada a pantalla táctil.
+
+El navegador muestra texto y enlaces, pero no ejecuta scripts ni formularios.
+La conexión HTTPS no verifica certificados: no introduzcas contraseñas ni datos
+privados. Consulta las guías de [navegación web](docs/apps/browser.md) y
+[herramientas de lectura](docs/apps/reading-tools.md).
 
 Flashcards y Palabras tienen tamaños separados para pregunta/palabra y contenido,
 de **10 a 18 pt**, y ajuste inteligente activado por defecto. El texto largo

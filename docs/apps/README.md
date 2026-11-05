@@ -18,6 +18,8 @@ An inherited document does not add its app to the X4 Pro shelf.
 | [Hearts](hearts.md) | Rules, scoring and shared card handling. |
 | [Murdle](murdle.md) | Logic grids, clues and generated cases. |
 | [Picross](picross.md) | Puzzle data and generation. |
+| [Habits](habits.md) | Daily check-ins, streaks and calendar history. |
+| [Reading tools](reading-tools.md) | Quote annotations, EPUB metadata, Wikipedia lookup and phone notes. |
 | [Web Browser](browser.md) | Read-only text pages, links and navigation limits. |
 
 For installation, the current app list and resource downloads, start with

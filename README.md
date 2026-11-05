@@ -58,6 +58,10 @@ configured separately. Saved Jersey 25 choices migrate to Noto Sans.
 - EPUB, text, Markdown and XTC/XTCH reading, a file browser and a cover library.
 - Reading history, statistics, calendars and Reading Quest.
 - Flashcards imported from files/Anki, local FSRS review and a saved vocabulary app.
+- Contextual offline Wikipedia lookup from selected reader text, plus a read-only
+  Web Browser for page text and ordinary links.
+- Notes on saved quotes, EPUB metadata editing from the Files page, and QR-based
+  sharing of a note to a phone over local Wi-Fi.
 - Independent title/question and content sizes: 10, 12, 14, 16 and 18 pt.
   Smart sizing is enabled by default; long text keeps complete pagination.
 - Horizontal paging in supported app/puzzle selectors and study cards.
@@ -66,13 +70,55 @@ configured separately. Saved Jersey 25 choices migrate to Noto Sans.
 - Pomodoro's physical button starts and pauses; XTC/XTCH can reverse swipes
   and page-tap zones for manga reading.
 
-The active shelf contains these **17 games**:
-Chess (including puzzles), Checkers, Go, Minesweeper, Picross, Wordle, 2048,
-The Intercept, Battleship, Solitaire, Hearts, Murdle, Carnivore, Connect Four,
-Sudoku, Othello and **Game Boy** (X4 Pro only).
+The active shelf has **17 games and 14 apps**.
 
-Its **13 app entries** are Reading Quest, PET, Habits, To Do List, Notes, Pomodoro,
-Wallpapers, Quotes, Flashcards, Words, Calendar, Clock and Counter.
+### Games
+
+| Game | Details |
+| --- | --- |
+| **CHESS** | Chess and puzzles. |
+| **CHECKERS** | English draughts. |
+| **GO** | Go with local play. |
+| **MINESWEEPER** | Logic puzzles. |
+| **PICROSS** | Picture logic puzzles. |
+| **WORDLE** | Word guessing. |
+| **2048** | Number puzzle. |
+| **THE INTERCEPT** | Narrative deduction. |
+| **BATTLESHIP** | Naval strategy. |
+| **SOLITAIRE** | Solitaire card game. |
+| **HEARTS** | Hearts card game. |
+| **MURDLE** | Logic mysteries. |
+| **CARNIVORO** | Deduction cases. |
+| **CONNECT FOUR** | Connect Four. |
+| **SUDOKU** | Number puzzles. |
+| **OTHELLO** | Othello. |
+| **GAME BOY** | Game Boy and Game Boy Color emulator (X4 Pro only). |
+
+### Apps
+
+| App | Details |
+| --- | --- |
+| **READING QUEST** | Reading goals and rewards. |
+| **PET** | Reading companion. |
+| **HABITS** | Daily habit tracking. |
+| **TO DO LIST** | Task lists. |
+| **NOTES** | Notes, lists and local phone sharing. |
+| **POMODORO** | Focus timer. |
+| **WALLPAPERS** | Sleep-screen images. |
+| **QUOTES** | Saved clippings with personal notes. |
+| **FLASHCARDS** | Flashcards and FSRS review. |
+| **WORDS** | Saved vocabulary. |
+| **CALENDAR** | Calendar. |
+| **CLOCK** | Clock and timers. |
+| **COUNTER** | Counter. |
+| **WEB BROWSER** | Read-only web text and links. |
+
+Four of the games play over **PLAY NEARBY**: Knucklebones, Sea Salt, Toy Battle and Yahtzee.
+
+The Web Browser is intentionally text-only: scripts, forms, images and file
+downloads are not supported. The shared HTTPS transport does not verify server
+certificates, so do not enter passwords or other private information. See the
+[browser guide](docs/apps/browser.md) and [reading-tools guide](docs/apps/reading-tools.md).
 
 ### Game Boy and Game Boy Color
 
