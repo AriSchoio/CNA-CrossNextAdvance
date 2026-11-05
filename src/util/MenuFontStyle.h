@@ -48,6 +48,7 @@ constexpr Style resolve(uint8_t general, uint8_t section) {
 }
 // Stable keys, independent of shelf order and translated labels.
 inline constexpr const char* kItemKeys[] = {
+    "DCC CRAWL",
     "CHESS",         "CHECKERS",  "GO",       "MINESWEEPER", "PICROSS",   "WORDLE",       "2048",       "THE INTERCEPT",
     "BATTLESHIP",    "SOLITAIRE", "HEARTS",   "MURDLE",      "CARNIVORO", "CONNECT FOUR", "SUDOKU",     "OTHELLO",
     "READING QUEST", "PET",       "HABITS",   "TO DO LIST",  "NOTES",     "POMODORO",     "WALLPAPERS", "QUOTES",

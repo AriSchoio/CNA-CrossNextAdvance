@@ -59,6 +59,7 @@
 #include "html/js/jszip_minJs.generated.h"
 #include "html/js/wallconvertJs.generated.h"
 #include "util/BookCacheUtils.h"
+#include "util/DictionaryInstaller.h"
 #include "util/DictionaryRegistry.h"
 #include "util/PluginHttp.h"
 #include "util/PluginLocations.h"
@@ -260,6 +261,12 @@ void CrossPointWebServer::begin() {
     server->on("/api/fonts", HTTP_GET, [this] { handleFontList(); });
     server->on("/api/fonts/upload", HTTP_POST, [this] { handleFontUpload(); }, [this] { handleFontUploadData(); });
     server->on("/api/fonts/delete", HTTP_POST, [this] { handleFontDelete(); });
+
+    // Dictionary ZIP installer
+    server->on("/dictionaries", HTTP_GET, [this] { handleDictionariesPage(); });
+    server->on("/api/dictionaries", HTTP_GET, [this] { handleDictionaryList(); });
+    server->on("/api/dictionaries/upload", HTTP_POST, [this] { handleDictionaryUpload(); },
+               [this] { handleDictionaryUploadData(); });
 
     // OPDS server endpoints
     server->on("/api/opds", HTTP_GET, [this] { handleGetOpdsServers(); });
@@ -2923,6 +2930,152 @@ void CrossPointWebServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* 
 }
 
 // --- Font management handlers ---
+
+void CrossPointWebServer::handleDictionariesPage() const {
+  static const char PAGE[] = R"HTML(
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dictionaries</title><style>body{font-family:sans-serif;max-width:700px;margin:auto;padding:24px;background:#111;color:#eee}input,button{font-size:16px;margin:8px 0;padding:10px}button{cursor:pointer}li{padding:6px 0}#message{white-space:pre-wrap}</style></head>
+<body><h1>Dictionaries</h1><p>Upload a StarDict dictionary ZIP. It may contain files in the archive root or in one folder.</p>
+<form id="form"><label>Dictionary folder name (optional)<br><input id="folder" maxlength="31"></label><br>
+<input id="file" type="file" accept=".zip,application/zip,application/x-zip-compressed" required><br><button>Initialize Dictionary</button></form>
+<p id="message"></p><h2>Installed dictionaries</h2><ul id="list"></ul>
+<script>
+async function refresh(){const r=await fetch('/api/dictionaries');const d=await r.json();const list=document.getElementById('list');list.innerHTML='';if(!d.dictionaries.length)list.innerHTML='<li>None installed</li>';for(const n of d.dictionaries){const li=document.createElement('li');li.textContent=n;list.appendChild(li)}}
+document.getElementById('form').addEventListener('submit',async e=>{e.preventDefault();const f=document.getElementById('file').files[0];if(!f)return;const msg=document.getElementById('message');msg.textContent='Installing...';const body=new FormData();body.append('dictionary',f);body.append('folder',document.getElementById('folder').value);
+const r=await fetch('/api/dictionaries/upload',{method:'POST',body});msg.textContent=await r.text();if(r.ok)refresh()});
+refresh();
+</script></body></html>
+)HTML";
+  server->send(200, "text/html", PAGE);
+}
+
+void CrossPointWebServer::handleDictionaryList() const {
+  std::vector<DictionaryEntry> dictionaries;
+  DictionaryRegistry::discover(dictionaries);
+  JsonDocument doc;
+  JsonArray array = doc["dictionaries"].to<JsonArray>();
+  for (const DictionaryEntry& entry : dictionaries) array.add(entry.name.c_str());
+  sendJson(doc);
+}
+
+void CrossPointWebServer::handleDictionaryUpload() {
+  if (dictionaryUpload.valid && !dictionaryUpload.result.empty()) {
+    server->send(dictionaryUpload.result.rfind("Installed", 0) == 0 ? 200 : 400, "text/plain",
+                 dictionaryUpload.result.c_str());
+  } else {
+    server->send(dictionaryUpload.valid ? 200 : 400, "text/plain",
+                 dictionaryUpload.valid ? "Dictionary uploaded" : "Dictionary upload failed");
+  }
+  dictionaryUpload.valid = false;
+  dictionaryUpload.result.clear();
+  dictionaryUpload.buffer.reset();
+  dictionaryUpload.bufferPos = 0;
+}
+
+void CrossPointWebServer::handleDictionaryUploadData() {
+  HTTPUpload& upload = server->upload();
+  switch (upload.status) {
+    case UPLOAD_FILE_START: {
+      dictionaryUpload.file = HalFile();
+      dictionaryUpload.valid = false;
+      dictionaryUpload.result.clear();
+      dictionaryUpload.bufferPos = 0;
+      dictionaryUpload.buffer.reset();
+      String filename = upload.filename;
+      filename.toLowerCase();
+      if (!filename.endsWith(".zip")) {
+        dictionaryUpload.result = "Only .zip dictionary archives are accepted";
+        break;
+      }
+      dictionaryUpload.folderName = server->hasArg("folder") ? server->arg("folder").c_str() : "";
+      if (dictionaryUpload.folderName.empty()) {
+        String originalName = upload.filename;
+        const int dot = originalName.lastIndexOf('.');
+        if (dot > 0) originalName = originalName.substring(0, dot);
+        dictionaryUpload.folderName = originalName.c_str();
+      }
+      dictionaryUpload.bytesWritten = 0;
+      if (!Storage.ensureDirectoryExists("/.crosspoint")) {
+        dictionaryUpload.result = "Could not access the device data folder";
+        break;
+      }
+      Storage.remove(dictionaryUpload.path.c_str());
+      dictionaryUpload.buffer = makeUniqueNoThrow<uint8_t[]>(DictionaryUploadState::BUFFER_SIZE);
+      if (!dictionaryUpload.buffer) {
+        dictionaryUpload.result = "Not enough memory to receive the ZIP";
+        break;
+      }
+      if (!Storage.openFileForWrite("DICT", dictionaryUpload.path.c_str(), dictionaryUpload.file)) {
+        dictionaryUpload.result = "Could not create the temporary dictionary archive";
+        break;
+      }
+      dictionaryUpload.valid = true;
+      break;
+    }
+    case UPLOAD_FILE_WRITE: {
+      if (!dictionaryUpload.valid || upload.currentSize == 0) break;
+      size_t remaining = upload.currentSize;
+      const uint8_t* source = upload.buf;
+      while (remaining) {
+        const size_t space = DictionaryUploadState::BUFFER_SIZE - dictionaryUpload.bufferPos;
+        const size_t amount = std::min(remaining, space);
+        memcpy(dictionaryUpload.buffer.get() + dictionaryUpload.bufferPos, source, amount);
+        dictionaryUpload.bufferPos += amount;
+        source += amount;
+        remaining -= amount;
+        if (dictionaryUpload.bufferPos == DictionaryUploadState::BUFFER_SIZE) {
+          if (dictionaryUpload.file.write(dictionaryUpload.buffer.get(), dictionaryUpload.bufferPos) !=
+              dictionaryUpload.bufferPos) {
+            dictionaryUpload.valid = false;
+            dictionaryUpload.result = "Failed to write the dictionary ZIP to the SD card";
+            dictionaryUpload.file.close();
+            Storage.remove(dictionaryUpload.path.c_str());
+            break;
+          }
+          dictionaryUpload.bytesWritten += dictionaryUpload.bufferPos;
+          dictionaryUpload.bufferPos = 0;
+          resetTaskWatchdogIfSubscribed();
+        }
+      }
+      break;
+    }
+    case UPLOAD_FILE_END: {
+      if (dictionaryUpload.valid && dictionaryUpload.bufferPos) {
+        if (dictionaryUpload.file.write(dictionaryUpload.buffer.get(), dictionaryUpload.bufferPos) !=
+            dictionaryUpload.bufferPos) {
+          dictionaryUpload.valid = false;
+          dictionaryUpload.result = "Failed to finish writing the dictionary ZIP";
+        }
+        dictionaryUpload.bytesWritten += dictionaryUpload.bufferPos;
+        dictionaryUpload.bufferPos = 0;
+      }
+      if (dictionaryUpload.file.isOpen()) dictionaryUpload.file.close();
+      if (!dictionaryUpload.valid) {
+        Storage.remove(dictionaryUpload.path.c_str());
+        break;
+      }
+      DictionaryInstaller::ImportResult imported =
+          DictionaryInstaller::importZip(dictionaryUpload.path, dictionaryUpload.folderName);
+      Storage.remove(dictionaryUpload.path.c_str());
+      if (imported.success) {
+        dictionaryUpload.result = "Installed: " + imported.dictionaryName;
+      } else {
+        dictionaryUpload.valid = false;
+        dictionaryUpload.result = imported.error.empty() ? "Dictionary installation failed" : imported.error;
+      }
+      break;
+    }
+    case UPLOAD_FILE_ABORTED: {
+      if (dictionaryUpload.file.isOpen()) dictionaryUpload.file.close();
+      Storage.remove(dictionaryUpload.path.c_str());
+      dictionaryUpload.valid = false;
+      dictionaryUpload.result = "Dictionary upload aborted";
+      dictionaryUpload.buffer.reset();
+      dictionaryUpload.bufferPos = 0;
+      break;
+    }
+  }
+}
 
 void CrossPointWebServer::handleFontsPage() const {
   sendStaticContent(server.get(), FontsPageHtml, sizeof(FontsPageHtml), FontsPageHtmlETag, "text/html");

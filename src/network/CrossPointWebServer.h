@@ -209,6 +209,23 @@ class CrossPointWebServer {
     size_t bufferPos = 0;
   } fontUpload;
 
+  // Dictionary ZIP installer
+  void handleDictionariesPage() const;
+  void handleDictionaryList() const;
+  void handleDictionaryUpload();
+  void handleDictionaryUploadData();
+  struct DictionaryUploadState {
+    HalFile file;
+    std::string path = "/.crosspoint/dictionary-import.zip";
+    std::string folderName;
+    std::string result;
+    size_t bytesWritten = 0;
+    bool valid = false;
+    std::unique_ptr<uint8_t[]> buffer;
+    size_t bufferPos = 0;
+    static constexpr size_t BUFFER_SIZE = 4096;
+  } dictionaryUpload;
+
   // OPDS server handlers
   void handleGetOpdsServers() const;
   void handlePostOpdsServer();

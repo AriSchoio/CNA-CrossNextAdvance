@@ -35,6 +35,7 @@
 #include "instapaper/InstapaperActivity.h"
 #include "intercept/InterceptActivity.h"
 #include "minesweeper/MinesweeperActivity.h"
+#include "dungeoncrawl/DungeonCrawlActivity.h"
 #include "murdle/MurdleActivity.h"
 #include "notes/NotesActivity.h"
 #include "pet/PetActivity.h"
@@ -64,6 +65,7 @@ namespace {
 // rather than literalness: a crown, a hull, a grid and a card suit share no
 // shape, so a row is scannable before the label is read.
 constexpr shelf::Item kGames[] = {
+    {"DCC CRAWL", &icon_dungeon_32, &DungeonCrawlActivity::create},
     {"CHESS", &icon_chess_32, &ChessActivity::create},
     {"CHECKERS", &icon_checkers_32, &DraughtsActivity::create},
     {"GO", &icon_go_32, &GoActivity::create},
