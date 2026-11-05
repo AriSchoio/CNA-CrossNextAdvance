@@ -28,5 +28,5 @@ bool ImageToFramebufferDecoder::validateAndStoreDimensions(int64_t, int64_t, Ima
 void ImageBlock::render(GfxRenderer&, int, int) {}
 void ImageBlock::renderPlaceholder(GfxRenderer&, int, int) const {}
 bool ImageBlock::needsDecode() const { return false; }
-bool ImageBlock::serialize(HalFile&) { return false; }
+bool ImageBlock::serialize(Print&) { return false; }
 std::unique_ptr<ImageBlock> ImageBlock::deserialize(HalFile&) { return nullptr; }

@@ -28,6 +28,7 @@ add_library(crosspoint_test_common INTERFACE)
 target_include_directories(crosspoint_test_common INTERFACE
   ${REPO_ROOT}
   ${REPO_ROOT}/lib
+  ${CMAKE_CURRENT_SOURCE_DIR}/fs_helpers/stubs
 )
 target_compile_options(crosspoint_test_common INTERFACE
   -Wall
@@ -68,7 +69,6 @@ add_subdirectory(home_button)
 add_subdirectory(button_press_navigation)
 
 add_subdirectory(inflate_stream)
-add_subdirectory(fs_helpers)
 add_subdirectory(txt_to_html)
 
 add_subdirectory(absolute_grayscale)

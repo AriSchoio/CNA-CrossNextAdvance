@@ -1,11 +1,15 @@
 #pragma once
 
+#include <Print.h>
+
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 
-class HalFile {
+class HalFile : public Print {
  public:
+  using Print::write;
   HalFile() = default;
   ~HalFile() { close(); }
   HalFile(const HalFile&) = delete;
@@ -19,7 +23,11 @@ class HalFile {
   int available() const { return file_ ? static_cast<int>(size() - position()) : 0; }
   size_t read(void* buffer, size_t count) { return file_ ? std::fread(buffer, 1, count, file_) : 0; }
   size_t write(const void* buffer, size_t count) { return file_ ? std::fwrite(buffer, 1, count, file_) : 0; }
-  size_t write(uint8_t byte) { return write(&byte, 1); }
+  size_t write(uint8_t byte) override { return write(&byte, 1); }
+  size_t write(const uint8_t* data, size_t count) override {
+    return file_ ? std::fwrite(data, 1, count, file_) : 0;
+  }
+  uint32_t modificationTime() const { return 0; }
   bool flush() { return file_ && std::fflush(file_) == 0; }
   bool seekCur(size_t offset) { return file_ && std::fseek(file_, static_cast<long>(offset), SEEK_CUR) == 0; }
   bool close() {
@@ -53,10 +61,21 @@ class HalStorage {
   bool openFileForRead(const char*, const std::string& path, HalFile& file) { return file.open(path.c_str(), "rb"); }
   bool openFileForWrite(const char*, const std::string& path, HalFile& file) { return file.open(path.c_str(), "wb"); }
   bool exists(const char* path) const {
+    if (std::filesystem::exists(path)) return true;
     std::FILE* file = std::fopen(path, "rb");
     if (!file) return false;
     std::fclose(file);
     return true;
+  }
+  bool mkdir(const char* path) const {
+    std::error_code error;
+    return std::filesystem::create_directories(path, error) || !error;
+  }
+  bool replaceFile(const char* from, const char* to) {
+    std::error_code error;
+    std::filesystem::remove(to, error);
+    std::filesystem::rename(from, to, error);
+    return !error;
   }
   bool remove(const std::string& path) { return std::remove(path.c_str()) == 0; }
   bool rename(const char* from, const char* to) { return std::rename(from, to) == 0; }

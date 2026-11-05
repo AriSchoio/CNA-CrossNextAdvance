@@ -34,7 +34,6 @@
 #include "hearts/HeartsActivity.h"
 #include "instapaper/InstapaperActivity.h"
 #include "intercept/InterceptActivity.h"
-#include "installed/InstalledAppsActivity.h"
 #include "minesweeper/MinesweeperActivity.h"
 #include "murdle/MurdleActivity.h"
 #include "notes/NotesActivity.h"
@@ -100,9 +99,6 @@ constexpr shelf::Item kApps[] = {
     {"CLOCK", &extra_clock_32, &ToolsActivity::clock},
     {"COUNTER", &icon_calculator_32, &ToolsActivity::counter},
     {"WEB BROWSER", &icon_book_32, &BrowserActivity::create},
-#if defined(CROSSDINK_GOODIES) && CROSSDINK_GOODIES
-    {"INSTALLED APPS", &icon_apps_32, &InstalledAppsActivity::create},
-#endif
 };
 
 // The two rows Home grows, in reading order. Titles are Title Case because

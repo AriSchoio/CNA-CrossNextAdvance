@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Print.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -98,7 +100,7 @@ inline void duplicateDirectoryEntry(const std::string& path) {
 
 }  // namespace fake
 
-class HalFile {
+class HalFile : public Print {
  public:
   std::shared_ptr<fake::Node> node;
   std::string path;
@@ -197,6 +199,7 @@ class HalFile {
     pos += size;
     return size;
   }
+  size_t write(uint8_t value) override { return write(&value, 1); }
   size_t write(const void* data, const size_t size) { return write(static_cast<const uint8_t*>(data), size); }
 };
 
